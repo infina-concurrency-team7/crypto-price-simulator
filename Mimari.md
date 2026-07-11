@@ -1,3 +1,90 @@
+# Eşzamanlı Kripto Fiyat Simülatörü - Mimari Dokümanı
+
+## 1. Proje Hakkında
+
+Bu proje, Java 17 ve Spring Boot kullanılarak geliştirilmiş eşzamanlı bir kripto fiyat simülasyon uygulamasıdır.  
+Sistem, üretilen fiyat güncelleme görevlerini bir `BlockingQueue` üzerinde toplar ve sabit sayıdaki worker thread tarafından işler.
+
+Uygulamanın amacı, çoklu thread ortamında oluşabilecek **race condition** problemlerini göstermek ve thread-safe veri yönetimi ile güvenli çözüm sağlamaktır.
+
+---
+
+# 2. Genel Mimari Akış
+
+```
+Controller
+      │
+      ▼
+SimulationService
+      │
+      ▼
+TaskProducer ────── WorkerService
+      │                  │
+      ▼                  ▼
+BlockingQueue<PriceUpdateTask>
+              │
+              ▼
+          Worker Threads
+              │
+              ▼
+      CoinStateManager
+              │
+              ▼
+          CoinState
+```
+
+## Akış Açıklaması
+
+1. Kullanıcı `/simulate` endpoint'i üzerinden simülasyonu başlatır.
+2. `SimulationController`, isteği `SimulationService` katmanına iletir.
+3. `SimulationService` queue ve worker pool oluşturur.
+4. `TaskProducer`, fiyat güncelleme görevlerini üretir.
+5. Üretilen görevler `BlockingQueue` içerisine eklenir.
+6. Worker thread'leri kuyruktan görevleri alarak işler.
+7. `CoinStateManager`, coin durumlarının güvenli güncellenmesini sağlar.
+8. Sonuçlar kullanıcıya döndürülür.
+
+---
+
+# 3. Paket Yapısı
+
+```
+src/main/java/com/infina/cryptopricesimulator
+
+├── controller
+│     └── SimulationController
+│
+├── service
+│     ├── SimulationService
+│     └── WorkerService
+│
+├── queue
+│     ├── TaskProducer
+│     └── PriceUpdateTask
+│
+├── worker
+│     └── Worker
+│
+├── state
+│     ├── CoinState
+│     └── CoinStateManager
+│
+├── model
+│     ├── Coin
+│     ├── StatsResponse
+│     └── SimulationResult
+│
+├── config
+│     └── SwaggerConfig
+│
+├── exception
+│     └── GlobalExceptionHandler
+│
+└── PriceSimApplication
+```
+
+---
+
 controller
 - REST API endpoint'lerini içerir.
 - Kullanıcıdan gelen simülasyon başlatma, coin durumu ve istatistik isteklerini yönetir.
