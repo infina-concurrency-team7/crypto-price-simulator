@@ -1,7 +1,7 @@
 package com.infina.cryptopricesimulator.api.exception;
 
 public class SimulationAlreadyRunningException extends RuntimeException{
-    public SimulationAlreadyRunningException(String message) {
-        super(message);
+    public SimulationAlreadyRunningException(){
+        super("Another simulation is already running.");
     }
 }
