@@ -1,0 +1,99 @@
+package com.infina.cryptopricesimulator.engine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Worker pool katmanının bağımsız kanıtı: sabit havuz tüm görevleri kaybetmeden işler,
+ * thread'ler doğru isimlendirilir ve graceful shutdown zamanında döner.
+ *
+ * <p>Domain modelinden bağımsız olduğunu göstermek için basit bir {@link Task} kaydı kullanılır.
+ * Thread-safe {@link AtomicLong} kullanılır çünkü burada test edilen şey işlemenin güvenliği
+ * değil, hiçbir görevin atlanmadığıdır.
+ */
+class WorkerPoolTest {
+
+    private static final Pattern WORKER_NAME = Pattern.compile("worker-\\d+");
+
+    /** Test görevi (domain modelinden bağımsız). */
+    private record Task(long seq) { }
+
+    @Test
+    @DisplayName("Tüm görevler tam olarak bir kez işlenir; hiç görev kaybı yok")
+    void processesEveryTaskExactlyOnce() {
+        int workers = 4;
+        int updates = 50_000;
+
+        AtomicLong processed = new AtomicLong();
+        TaskProcessor<Task> processor = task -> processed.incrementAndGet();
+
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(1_000);
+        WorkerPool<Task> pool = new WorkerPool<>(workers, new Task(-1));
+        pool.start(queue, processor);
+
+        produce(queue, updates);
+        pool.signalNoMoreTasks();
+        boolean clean = pool.awaitCompletion(30);
+
+        assertTrue(clean, "Worker'lar süre içinde temiz bitmeliydi (graceful shutdown)");
+        assertEquals(updates, processed.get(), "İşlenen görev sayısı gönderilenle eşleşmeli");
+    }
+
+    @Test
+    @DisplayName("Thread'ler worker-1..N olarak isimlendirilir; N worker'dan fazla thread yok")
+    void namesThreadsWorker1ToN() {
+        int workers = 4;
+        int updates = 5_000;
+
+        Set<String> threadNames = ConcurrentHashMap.newKeySet();
+        TaskProcessor<Task> processor = task -> threadNames.add(Thread.currentThread().getName());
+
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(500);
+        WorkerPool<Task> pool = new WorkerPool<>(workers, new Task(-1));
+        pool.start(queue, processor);
+
+        produce(queue, updates);
+        pool.signalNoMoreTasks();
+        pool.awaitCompletion(30);
+
+        assertTrue(threadNames.size() <= workers,
+                "Sabit havuz: en fazla " + workers + " thread iş yapmalı, görülen: " + threadNames);
+        for (String name : threadNames) {
+            assertTrue(WORKER_NAME.matcher(name).matches(),
+                    "Beklenen worker-N formatı, görülen: " + name);
+        }
+    }
+
+    @Test
+    @DisplayName("Boş kuyrukta sinyal sonrası graceful shutdown hızlıca döner")
+    void gracefulShutdownReturnsPromptly() {
+        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(16);
+        pool.start(queue, task -> { /* no-op */ });
+
+        pool.signalNoMoreTasks();
+        assertTrue(pool.awaitCompletion(5),
+                "Boş iş yükünde graceful shutdown hızlıca dönmeli");
+    }
+
+    /** {@code count} adet gerçek görev üretip kuyruğa koyar. */
+    private static void produce(BlockingQueue<Task> queue, int count) {
+        try {
+            for (int i = 1; i <= count; i++) {
+                queue.put(new Task(i));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while producing tasks", e);
+        }
+    }
+}
