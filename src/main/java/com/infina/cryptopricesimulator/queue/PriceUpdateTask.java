@@ -1,6 +1,6 @@
 package com.infina.cryptopricesimulator.queue;
 
-import com.infina.cryptopricesimulator.entities.CoinType;
+import com.infina.cryptopricesimulator.model.Coin;
 
 /*Kuyrukta taşınan ve işlenmeyi bekleyen her bir "fiyat değişim emri" paketidir.
  @param sequence Görevin sıra numarası (Loglama ve Poison Pill için kritik)
@@ -12,7 +12,7 @@ Sınıfın içindeki tüm alanlar varsayılan olarak private final (yani salt ok
 public record PriceUpdateTask(
         //worker loglarında takibi sağlamak amacıyla eklenmiştir
         long sequence,
-        CoinType coin,
+        Coin coin,
         //eklenecek veya çıkarılacak değişim miktarını gösterir
         long delta
 ) {}

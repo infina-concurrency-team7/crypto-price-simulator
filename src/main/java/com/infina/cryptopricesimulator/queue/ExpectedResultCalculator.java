@@ -1,6 +1,6 @@
 package com.infina.cryptopricesimulator.queue;
 
-import com.infina.cryptopricesimulator.entities.CoinType;
+import com.infina.cryptopricesimulator.model.Coin;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,12 +16,12 @@ public class ExpectedResultCalculator {
      * @param tasks Simülasyon başında üretilen immutable görev listesi
      * @return Her coin için beklenen fiyat ve güncelleme sayısını içeren harita
      */
-    public static Map<CoinType, ExpectedCoinCalculatedResult> calculateExpectedResults(List<PriceUpdateTask> tasks) {
-        Map<CoinType, Long> finalPrices = new HashMap<>();
-        Map<CoinType, Long> updateCounts = new HashMap<>();
+    public static Map<Coin, ExpectedCoinCalculatedResult> calculateExpectedResults(List<PriceUpdateTask> tasks) {
+        Map<Coin, Long> finalPrices = new HashMap<>();
+        Map<Coin, Long> updateCounts = new HashMap<>();
 
         //  Başlangıç fiyatlarını yükle (Initial Price)
-        for (CoinType type : CoinType.values()) {
+        for (Coin type : Coin.values()) {
             finalPrices.put(type, type.getInitialPrice());
             updateCounts.put(type, 0L);
         }
@@ -29,7 +29,7 @@ public class ExpectedResultCalculator {
         // Tüm deltaları tek tek ekle (Deterministik hesaplama)
         // Bu işlem tek thread'de yapıldığı için race condition oluşmaz
         for (PriceUpdateTask task : tasks) {
-            CoinType coin = task.coin();
+            Coin coin = task.coin();
             long currentPrice = finalPrices.get(coin);
 
             finalPrices.put(coin, currentPrice + task.delta());
@@ -37,8 +37,8 @@ public class ExpectedResultCalculator {
         }
 
         //  Sonuçları DTO (record) yapısına dönüştürerek paketle
-        Map<CoinType, ExpectedCoinCalculatedResult> resultMap = new HashMap<>();
-        for (CoinType type : CoinType.values()) {
+        Map<Coin, ExpectedCoinCalculatedResult> resultMap = new HashMap<>();
+        for (Coin type : Coin.values()) {
             resultMap.put(type, new ExpectedCoinCalculatedResult(
                     finalPrices.get(type),
                     updateCounts.get(type)

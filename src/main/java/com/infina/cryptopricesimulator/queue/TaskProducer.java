@@ -1,6 +1,6 @@
 package com.infina.cryptopricesimulator.queue;
 
-import com.infina.cryptopricesimulator.entities.CoinType;
+import com.infina.cryptopricesimulator.model.Coin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,11 +25,11 @@ public class TaskProducer implements Runnable {
         Random random = new Random(seed);
         //Üretilecek görev nesnelerini (PriceUpdateTask) içinde toplamak amacıyla boş bir dinamik liste (ArrayList) oluşturur.
         List<PriceUpdateTask> tasks = new ArrayList<>();
-        //CoinType adındaki Enum (sabitler listesi) yapısının içinde tanımlı tüm kripto para veya coin türlerini bir dizi (Array) olarak çeker.
-        CoinType[] coins = CoinType.values();
+        //Coin adındaki Enum (sabitler listesi) yapısının içinde tanımlı tüm kripto para veya coin türlerini bir dizi (Array) olarak çeker.
+        Coin[] coins = Coin.values();
 
         for (int i = 1; i <= count; i++) {
-            CoinType randomCoin = coins[random.nextInt(coins.length)];
+            Coin randomCoin = coins[random.nextInt(coins.length)];
             //Fiyattaki değişimi (delta) belirlemek için -100 ile +100 arasında rastgele bir tam sayı üretir.
             // -100 ile +100 arası
             long randomDelta = random.nextInt(201) - 100;

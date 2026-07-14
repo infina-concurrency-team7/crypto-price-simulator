@@ -1,6 +1,6 @@
 package com.infina.cryptopricesimulator.queue;
 
-import com.infina.cryptopricesimulator.entities.CoinType;
+import com.infina.cryptopricesimulator.model.Coin;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,28 +72,28 @@ class TaskProducerTest {
     void testExpectedResultCalculatorLogic() {
         //  Manuel bir görev listesi oluşturuyoruz
         List<PriceUpdateTask> manualTasks = new ArrayList<>();
-        manualTasks.add(new PriceUpdateTask(1L, CoinType.BTC, 100L));
-        manualTasks.add(new PriceUpdateTask(2L, CoinType.BTC, -50L));
+        manualTasks.add(new PriceUpdateTask(1L, Coin.BTC, 100L));
+        manualTasks.add(new PriceUpdateTask(2L, Coin.BTC, -50L));
 
         //  Hesaplayıcıyı çağırıyoruz
-        Map<CoinType, ExpectedCoinCalculatedResult> results =
+        Map<Coin, ExpectedCoinCalculatedResult> results =
                 ExpectedResultCalculator.calculateExpectedResults(manualTasks);
 
         //  Then: Invariant Kontrolü
-        long expectedBtcPrice = CoinType.BTC.getInitialPrice() + 100L - 50L;
+        long expectedBtcPrice = Coin.BTC.getInitialPrice() + 100L - 50L;
 
         // BTC sonuçlarını doğrula
-        assertNotNull(results.get(CoinType.BTC), "BTC sonucu null olamaz!");
-        assertEquals(expectedBtcPrice, results.get(CoinType.BTC).expectedPrice(),
+        assertNotNull(results.get(Coin.BTC), "BTC sonucu null olamaz!");
+        assertEquals(expectedBtcPrice, results.get(Coin.BTC).expectedPrice(),
                 "BTC için hesaplanan beklenen fiyat hatalı!");
-        assertEquals(2, results.get(CoinType.BTC).expectedUpdateCount(),
+        assertEquals(2, results.get(Coin.BTC).expectedUpdateCount(),
                 "BTC için beklenen güncelleme sayısı hatalı!");
 
         //  İşlem görmeyen coinlerin kontrolü
-        assertNotNull(results.get(CoinType.ETH), "ETH sonucu null olamaz!");
-        assertEquals(CoinType.ETH.getInitialPrice(), results.get(CoinType.ETH).expectedPrice(),
+        assertNotNull(results.get(Coin.ETH), "ETH sonucu null olamaz!");
+        assertEquals(Coin.ETH.getInitialPrice(), results.get(Coin.ETH).expectedPrice(),
                 "İşlem görmeyen ETH başlangıç fiyatında kalmalıydı!");
-        assertEquals(0, results.get(CoinType.ETH).expectedUpdateCount(),
+        assertEquals(0, results.get(Coin.ETH).expectedUpdateCount(),
                 "İşlem görmeyen ETH'nin güncelleme sayısı 0 olmalıydı!");
     }
 }
