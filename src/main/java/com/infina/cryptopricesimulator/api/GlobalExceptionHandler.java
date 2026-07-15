@@ -1,5 +1,6 @@
 package com.infina.cryptopricesimulator.api;
 
+import com.infina.cryptopricesimulator.api.dto.ErrorResponse;
 import com.infina.cryptopricesimulator.api.exception.SimulationAlreadyRunningException;
 import com.infina.cryptopricesimulator.api.exception.SimulationNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -76,16 +77,5 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-
-
-    public record ErrorResponse(
-            String timestamp,
-            int status,
-            String error,
-            String message,
-            Map<String, Object> details
-    ){}
-
-
 
 }
