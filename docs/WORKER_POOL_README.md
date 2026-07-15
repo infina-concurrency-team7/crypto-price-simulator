@@ -18,7 +18,7 @@ bağımsızdır** (generic `<T>`):
 - **`PriceWorker<T>`** — `BlockingQueue<T>`'den görev tüketen `Runnable`; poison pill görene
   kadar döner.
 - **`WorkerPool<T>`** — sabit thread havuzunu (`newFixedThreadPool`), thread isimlendirmeyi
-  (`worker-1..N`), poison-pill tamamlanmasını ve graceful shutdown'ı yönetir.
+  (`worker-1..N`), CountDownLatch ile worker tamamlanmasının izlenmesini, poison-pill tamamlanmasını ve graceful shutdown'ı yönetir.
 
 Çalışma zamanında `T`, Kişi 1'in `queue.PriceUpdateTask` (`entities.CoinType coin` ile) tipiyle
 bağlanır; poison pill tekil bir sentinel örnektir (ör. `new PriceUpdateTask(-1, CoinType.BTC, 0)`).
@@ -32,6 +32,7 @@ bağlanır; poison pill tekil bir sentinel örnektir (ör. `new PriceUpdateTask(
 | Worker–domain bağı | Generic `TaskProcessor<T>` arayüzü | Worker yalnızca kuyruk+thread+durma döngüsünü bilir; görev tipinden ve safe/unsafe stratejisinden bağımsız kalır. Model layer'a (Kişi 1/6) bağlanmaz. |
 | İşlerin tamamlanması | Poison pill (her worker için 1 sentinel) | Producer bitince kuyruğa `workers` adet sentinel konur; FIFO'da gerçek görevlerden sonra sıralandığı için worker çıkmadan tüm gerçek görevler işlenir. `CountDownLatch` alternatifine göre worker döngüsüne daha doğal; ayrıca latch bunu sarabilir. |
 | Graceful shutdown | `shutdown()` → `awaitTermination(timeout)` → gerekirse `shutdownNow()` | Yalnızca `shutdown()` yeni görev kabulünü durdurur ama mevcut görevlerin bittiğini garanti etmez. `awaitTermination` bitişi bekler; timeout'ta `shutdownNow()` + interrupt flag geri konur (§12). |
+| Worker tamamlanmasının senkronizasyonu | `CountDownLatch` | Her worker `finally` bloğunda `countDown()` çağırır. Simülasyonu yöneten katman `await()` ile tüm worker'ların tamamlanmasını bekler. Böylece ana thread yalnızca bütün worker'lar işini bitirdiğinde devam eder. Alternatif olarak sadece `ExecutorService.awaitTermination()` kullanılabilirdi ancak bu worker bazlı tamamlanma kontrolünü daha az esnek hale getirir. |
 
 ## Neden Thread Pool? (yönerge §4 cevabı)
 
