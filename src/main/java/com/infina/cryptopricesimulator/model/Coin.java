@@ -8,7 +8,7 @@ import lombok.Getter;
 public enum Coin {
 
     BTC("Bitcoin", "BTC", 60000),
-    ETH("Ethereum", "ETH", 4000),
+    ETH("Ethereum", "ETH", 3000),
     SOL("Solana", "SOL", 150);
 
     private final String displayName;
