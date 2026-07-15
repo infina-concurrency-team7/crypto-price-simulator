@@ -1,6 +1,7 @@
 package com.infina.cryptopricesimulator.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -83,6 +84,38 @@ class WorkerPoolTest {
         pool.signalNoMoreTasks();
         assertTrue(pool.awaitCompletion(5),
                 "Boş iş yükünde graceful shutdown hızlıca dönmeli");
+    }
+    @Test
+    @DisplayName("Geçersiz worker sayısı IllegalArgumentException fırlatır")
+    void rejectsInvalidWorkerCount() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkerPool<>(0, new Task(-1)));
+    }
+
+    @Test
+    @DisplayName("null poison pill IllegalArgumentException fırlatır")
+    void rejectsNullPoisonPill() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkerPool<Task>(4, null));
+    }
+
+    @Test
+    @DisplayName("start() öncesi signalNoMoreTasks() IllegalStateException fırlatır")
+    void signalBeforeStartFails() {
+        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
+        assertThrows(IllegalStateException.class, pool::signalNoMoreTasks);
+    }
+
+    @Test
+    @DisplayName("İkinci start() IllegalStateException fırlatır (tek kullanımlık)")
+    void secondStartFails() {
+        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(16);
+        pool.start(queue, task -> { });
+        assertThrows(IllegalStateException.class,
+                () -> pool.start(queue, task -> { }));
+        pool.signalNoMoreTasks();
+        pool.awaitCompletion(5); // temizlik
     }
 
     /** {@code count} adet gerçek görev üretip kuyruğa koyar. */

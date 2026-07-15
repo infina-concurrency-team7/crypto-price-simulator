@@ -5,12 +5,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Sabit boyutlu worker havuzunun yaşam döngüsünü yönetir (#6, #7).
+ *
+ * <p><b>Tek kullanımlıktır:</b> bir {@code WorkerPool} örneği tam olarak BİR simülasyon
+ * koşusuna karşılık gelir. {@link #awaitCompletion} executor'ı kapatır; kapanan bir havuz
+ * tekrar {@link #start} edilemez. Yönergenin "önce unsafe, sonra safe" akışında çağıran
+ * katman İKİ ayrı örnek yaratmalıdır (biri unsafe processor, biri safe processor ile).
  *
  * <p>Sorumlulukları:
  * <ul>
@@ -23,13 +29,13 @@ import org.slf4j.LoggerFactory;
  *       awaitTermination, timeout'ta shutdownNow.</li>
  * </ul>
  *
- * <p>Görev tipinden bağımsızdır ({@code <T>}); domain modeline (ör. {@code queue.PriceUpdateTask})
- * bağlanmaz. Poison pill, çağıran katman tarafından tekil bir sentinel örnek olarak sağlanır ve
- * worker'lar onu referans kimliğiyle ({@code ==}) tanır.
+ * <p>Görev tipinden bağımsızdır ({@code <T>}); domain modeline bağlanmaz. Poison pill, çağıran
+ * katman tarafından tekil bir sentinel örnek olarak sağlanır ve worker'lar onu referans
+ * kimliğiyle ({@code ==}) tanır.
  *
  * <p>Tipik kullanım:
  * <pre>{@code
- * PriceUpdateTask pill = new PriceUpdateTask(-1, CoinType.BTC, 0); // tekil sentinel
+ * PriceUpdateTask pill = new PriceUpdateTask(-1, Coin.BTC, 0); // tekil sentinel
  * WorkerPool<PriceUpdateTask> pool = new WorkerPool<>(workers, pill);
  * pool.start(queue, processor);      // worker'lar kuyruğu tüketmeye başlar
  * producer.produceInto(queue);       // gerçek görevler kuyruğa
@@ -47,6 +53,7 @@ public final class WorkerPool<T> {
     private final ExecutorService executor;
     private final T poisonPill;
 
+    private final AtomicBoolean started = new AtomicBoolean(false);
     private volatile BlockingQueue<T> queue;
 
     /**
@@ -79,8 +86,15 @@ public final class WorkerPool<T> {
     /**
      * Worker'ları başlatır; her biri {@code queue}'yu tüketmeye başlar. Görevler bu çağrıdan
      * sonra kuyruğa eklenebilir (producer eşzamanlı üretebilir).
+     *
+     * @throws IllegalStateException havuz zaten başlatılmışsa (tek kullanımlıktır — yeni bir
+     *                               koşu için yeni bir {@code WorkerPool} yaratın)
      */
     public void start(BlockingQueue<T> queue, TaskProcessor<T> processor) {
+        if (!started.compareAndSet(false, true)) {
+            throw new IllegalStateException(
+                    "WorkerPool tek kullanımlıktır; zaten başlatılmış. Yeni koşu için yeni örnek yaratın.");
+        }
         this.queue = queue;
         for (int i = 0; i < workers; i++) {
             executor.submit(new PriceWorker<>(queue, processor, poisonPill));
