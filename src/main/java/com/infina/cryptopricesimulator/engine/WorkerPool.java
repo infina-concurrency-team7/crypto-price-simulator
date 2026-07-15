@@ -97,7 +97,10 @@ public final class WorkerPool<T> {
         }
         this.queue = queue;
         for (int i = 0; i < workers; i++) {
-            executor.submit(new PriceWorker<>(queue, processor, poisonPill));
+            // submit değil execute: dönen Future'ı kullanmıyoruz. submit ile kaçan bir istisna
+            // Future'da saklanıp sessizce yutulurdu; execute ile thread'in
+            // UncaughtExceptionHandler'ına düşüp görünür olur (fire-and-forget).
+            executor.execute(new PriceWorker<>(queue, processor, poisonPill));
         }
     }
 
