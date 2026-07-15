@@ -16,16 +16,10 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    private final View error;
-
-    public GlobalExceptionHandler(View error) {
-        this.error = error;
-    }
-
 
     // PARAMETRE KONTROLÜ - updates (1-100k) veya workers (1-16) hatalı girilirse
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleConstraintViolationException(ConstraintViolationException e) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException e) {
         Map<String, Object> errorDetail = new HashMap<>();
 
         e.getConstraintViolations().forEach(violation -> {
@@ -34,12 +28,13 @@ public class GlobalExceptionHandler {
             errorDetail.put(paramName, violation.getMessage());
         });
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", LocalDateTime.now().toString());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Bad Request");
-        response.put("message", "Geçersiz parametre girişi yapıldı.");
-        response.put("details", errorDetail);
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                "Geçersiz parametre girişi yapıldı.",
+                errorDetail
+        );
 
         return  ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 
@@ -55,28 +50,41 @@ public class GlobalExceptionHandler {
 
     // SONUÇ BULUNAMADI (HTTP 404 - NOT FOUND) - Henüz simülasyon yoksa HTTP 404 döner
     @ExceptionHandler(SimulationNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleSimulationNotFound(SimulationNotFoundException e){
-        Map<String,Object> response = new HashMap<>();
-        response.put("timestamp", LocalDateTime.now().toString());
-        response.put("status", HttpStatus.NOT_FOUND.value());
-        response.put("error", "Simulation Not Found");
-        response.put("message", e.getMessage());
+    public ResponseEntity<ErrorResponse> handleSimulationNotFound(SimulationNotFoundException e){
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now().toString(),
+                HttpStatus.NOT_FOUND.value(),
+                "Simulation Not Found",
+                e.getMessage(),
+                null
+        );
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     //BEKLENMEYEN SİSTEM HATALARI (HTTP 500 - INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneralException(Exception e){
-        Map<String,Object> response = new HashMap<>();
-        response.put("timestamp", LocalDateTime.now().toString());
-        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("error", "Internal Server Error");
-        response.put("message", "Beklenmeyen bir iç hata oluştu.");
-        response.put("details", e.getMessage());
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception e){
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now().toString(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Internal Server Error",
+                "Beklenmeyen bir iç hata oluştu.",
+                Map.of("message", e.getMessage())
+        );
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
+
+
+    public record ErrorResponse(
+            String timestamp,
+            int status,
+            String error,
+            String message,
+            Map<String, Object> details
+    ){}
 
 
 
