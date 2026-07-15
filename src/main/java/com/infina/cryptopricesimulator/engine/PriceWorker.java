@@ -1,8 +1,9 @@
 package com.infina.cryptopricesimulator.engine;
 
 import java.util.concurrent.BlockingQueue;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Producer–Consumer yapısının tüketici (consumer) tarafı. Bir {@link BlockingQueue}'dan
@@ -17,24 +18,33 @@ import lombok.extern.slf4j.Slf4j;
  * çıkar. FIFO kuyrukta sentinel'ler gerçek görevlerden sonra sıralandığı için worker çıkmadan
  * önce tüm gerçek görevler işlenmiş olur.
  *
- * <p><b>Hata dayanıklılığı:</b> {@code process} bir {@link RuntimeException} fırlatırsa worker
- * ölmez; hata loglanır ve sıradaki göreve geçilir. Bir worker ölseydi kalan pill'lerden birini
- * kimse tüketemez, sınırlı kuyrukta {@code signalNoMoreTasks()} put'u sonsuza bloklanabilirdi.
- *
  * @param <T> işlenen görev tipi; poison pill de aynı tiptedir
  */
-@Slf4j
-@RequiredArgsConstructor
 public final class PriceWorker<T> implements Runnable {
+
+    private static final Logger log = LoggerFactory.getLogger(PriceWorker.class);
 
     private final BlockingQueue<T> queue;
     private final TaskProcessor<T> processor;
     private final T poisonPill;
+    private final CountDownLatch latch;
+
+    /**
+     * @param queue      görevlerin alınacağı paylaşılan kuyruk
+     * @param processor  görevi işleyen strateji (safe/unsafe)
+     * @param poisonPill döngüyü sonlandıran sentinel; {@link WorkerPool} tarafından sağlanır
+     */
+    public PriceWorker(BlockingQueue<T> queue, TaskProcessor<T> processor, T poisonPill,CountDownLatch latch) {
+        this.queue = queue;
+        this.processor = processor;
+        this.poisonPill = poisonPill;
+        this.latch = latch;
+    }
 
     @Override
     public void run() {
         try {
-            while (!Thread.currentThread().isInterrupted()) {
+            while (true) {
                 T task = queue.take();
                 // Referans kimliği: sadece WorkerPool'un koyduğu tekil sentinel eşleşir.
                 if (task == poisonPill) {
@@ -44,18 +54,13 @@ public final class PriceWorker<T> implements Runnable {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] processing {}", Thread.currentThread().getName(), task);
                 }
-                // Tek bir görevin hatası worker'ı öldürmemeli: yakala, logla, devam et.
-                try {
-                    processor.process(task);
-                } catch (RuntimeException ex) {
-                    log.error("[{}] task failed, skipping: {}",
-                            Thread.currentThread().getName(), task, ex);
-                }
+                processor.process(task);
             }
         } catch (InterruptedException e) {
-            // shutdownNow() sonrası normal akış: interrupt flag'ini geri koyup temiz çıkış yap.
-            log.debug("[{}] interrupted, stopping", Thread.currentThread().getName());
+            // shutdownNow() sonrası: interrupt flag'ini geri koyup temiz çıkış yap.
             Thread.currentThread().interrupt();
+        }finally {
+            latch.countDown();
         }
     }
 }
