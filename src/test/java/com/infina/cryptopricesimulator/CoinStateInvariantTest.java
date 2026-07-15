@@ -8,19 +8,19 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-public class CoinStateInvariantTest {
+class CoinStateInvariantTest { // <-- "public" kaldırıldı!
 
     private final InvariantChecker checker = new InvariantChecker();
 
     @Test
-    void whenSafePricesMatchExpected_thenInvariantShouldPass() {
-        // GIVEN: Beklenen (Expected) fiyat listesi
-        Map<String, Long> expectedPrices = Map.of(
-                "BTC", 60120L,
-                "ETH", 2975L
+    void whenSafePricesMatchExpected_thenInvariantShouldPass() { // <-- "public" yok!
+        // GIVEN: Beklenen (Expected) fiyat listesi artık Coin enum ile tutuluyor
+        Map<Coin, Long> expectedPrices = Map.of(
+                Coin.BTC, 60120L,
+                Coin.ETH, 2975L
         );
 
-        // WHEN: Arkadaşının Snapshot yapısına uygun sahte veriler üretiyoruz
+        // WHEN: Worker'ların işlediği güvenli (Safe) coin son durumları
         List<Snapshot> safeCoins = List.of(
                 new Snapshot(Coin.BTC, 60120L, 120L, 5L, "worker-1"),
                 new Snapshot(Coin.ETH, 2975L, -25L, 2L, "worker-2")
@@ -32,7 +32,7 @@ public class CoinStateInvariantTest {
     }
 
     @Test
-    void whenProcessedCountMatchesSubmitted_thenCountInvariantShouldPass() {
+    void whenProcessedCountMatchesSubmitted_thenCountInvariantShouldPass() { // <-- "public" yok!
         long submitted = 10000L;
         long processed = 10000L;
 

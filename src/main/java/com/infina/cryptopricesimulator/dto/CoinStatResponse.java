@@ -1,7 +1,9 @@
 package com.infina.cryptopricesimulator.dto;
 
+import com.infina.cryptopricesimulator.model.Coin;
+
 public record CoinStatResponse(
-        String coinId,
+        Coin coin,
         long initial,
         long expected,
         long unsafe,
