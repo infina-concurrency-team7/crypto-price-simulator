@@ -105,8 +105,61 @@ safeUpdateCount == o coin için üretilen görev sayısı ->  <geçti/geçmedi>
 
 ## ReentrantLock ve synchronized Karşılaştırması
 
-<Nerede hangisini kullandınız? ReentrantLock'un sağladığı ekstralar (tryLock, adalet, kesintiye
-uğrayabilir kilitleme) sizin için gerekli miydi? Global lock vs coin başına lock farkı.>
+Java'da paylaşılan mutable state üzerinde thread güvenliği sağlamak için
+`synchronized` veya `ReentrantLock` kullanılabilir.
+
+### synchronized
+
+`synchronized`, JVM tarafından sağlanan dahili bir kilitleme mekanizmasıdır.
+Bir metoda veya kod bloğuna aynı anda yalnızca bir thread'in erişmesine izin verir.
+
+Avantajları:
+- Kullanımı kolaydır.
+- Lock yönetimi JVM tarafından otomatik gerçekleştirilir.
+
+Dezavantajları:
+- Lock yönetimi üzerinde daha az kontrol sağlar.
+- `tryLock()` veya fair locking gibi gelişmiş özellikleri desteklemez.
+
+
+### ReentrantLock
+
+`ReentrantLock`, Java Concurrency API içerisinde bulunan daha gelişmiş bir
+kilitleme mekanizmasıdır.
+
+Avantajları:
+- Manuel lock kontrolü sağlar.
+- `tryLock()` ile lock alınabilirliği beklemeden kontrol edilebilir.
+- Fair locking gibi ek özellikler sunar.
+- Daha esnek concurrency yönetimi sağlar.
+
+Dezavantajları:
+- `lock()` ve `unlock()` yönetimi geliştirici sorumluluğundadır.
+- `unlock()` unutulması durumunda kilitlenme problemleri oluşabilir.
+
+
+## Project Usage
+
+Bu projede `CoinState` üzerinde birden fazla worker thread tarafından yapılan
+fiyat güncellemelerinde thread güvenliği sağlamak amacıyla `ReentrantLock`
+kullanılmıştır.
+
+`SafeCoinState` sınıfında:
+
+- `applyDelta()` metodu
+- `snapshot()` metodu
+
+lock ile korunmaktadır.
+
+Böylece aynı coin state üzerinde eşzamanlı güncellemeler sırasında oluşabilecek
+race condition problemleri engellenir.
+
+Bu projede `synchronized` yerine `ReentrantLock` tercih edilmiştir çünkü lock
+yönetimi üzerinde daha fazla kontrol sağlamak hedeflenmiştir.
+
+Sayaç işlemlerinde ise farklı bir thread-safe yaklaşım olarak `AtomicLong`
+kullanılmıştır. `SafeCounter` sınıfında atomic operasyonlar sayesinde ek bir
+lock mekanizmasına ihtiyaç duyulmadan güvenli sayaç yönetimi sağlanmıştır.
 
 ## Thread Dump İncelemesi
 

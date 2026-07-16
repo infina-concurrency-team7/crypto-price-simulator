@@ -1,12 +1,17 @@
 package com.infina.cryptopricesimulator.engine;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,35 +28,41 @@ import org.slf4j.LoggerFactory;
  *   <li><b>#6</b> — {@code workers} adet worker'ı {@link Executors#newFixedThreadPool} ile
  *       çalıştırır; her görev için yeni thread AÇMAZ. Özel {@link ThreadFactory} thread'lere
  *       {@code worker-1..N} anlamlı isimlerini verir (thread dump okunabilirliği, §14).</li>
- *   <li><b>Tamamlanma</b> — poison pill: {@link #signalNoMoreTasks()} kuyruğa her worker için
- *       bir sentinel koyar; worker'lar bunu görünce çıkar.</li>
+ *   <li><b>Tamamlanma</b> — iki tamamlayıcı mekanizma: (1) poison pill:
+ *       {@link #signalNoMoreTasks()} kuyruğa her worker için bir sentinel koyar; worker'lar bunu
+ *       görünce çıkar. (2) {@link CountDownLatch}: her worker çıkarken latch'i azaltır, böylece
+ *       {@link #getLatch()}.{@code await()} ile worker'ların bitişi shutdown'dan önce beklenebilir.</li>
  *   <li><b>#7</b> — {@link #awaitCompletion(long)} graceful shutdown: shutdown +
  *       awaitTermination, timeout'ta shutdownNow.</li>
  * </ul>
  *
- * <p>Görev tipinden bağımsızdır ({@code <T>}); domain modeline bağlanmaz. Poison pill, çağıran
- * katman tarafından tekil bir sentinel örnek olarak sağlanır ve worker'lar onu referans
- * kimliğiyle ({@code ==}) tanır.
+ * <p>Görev tipinden bağımsızdır ({@code <T>}); domain modeline (ör. {@code queue.PriceUpdateTask})
+ * bağlanmaz. Poison pill, çağıran katman tarafından tekil bir sentinel örnek olarak sağlanır ve
+ * worker'lar onu referans kimliğiyle ({@code ==}) tanır.
  *
  * <p>Tipik kullanım:
  * <pre>{@code
- * PriceUpdateTask pill = new PriceUpdateTask(-1, Coin.BTC, 0); // tekil sentinel
+ * PriceUpdateTask pill = new PriceUpdateTask(-1, CoinType.BTC, 0); // tekil sentinel
  * WorkerPool<PriceUpdateTask> pool = new WorkerPool<>(workers, pill);
  * pool.start(queue, processor);      // worker'lar kuyruğu tüketmeye başlar
  * producer.produceInto(queue);       // gerçek görevler kuyruğa
  * pool.signalNoMoreTasks();          // her worker için 1 poison pill
- * pool.awaitCompletion(30);          // tüm görevler bitene kadar bekle + kapat
+ * pool.getLatch().await();           // tüm worker'ların görevlerini tamamlamasını bekle
+ * pool.awaitCompletion(30);          // executor'ı güvenle kapat
  * }</pre>
  *
  * @param <T> görev tipi
  */
+@RequiredArgsConstructor
+@Getter
+@Slf4j
 public final class WorkerPool<T> {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
     private final int workers;
     private final ExecutorService executor;
     private final T poisonPill;
+    private final CountDownLatch latch;
 
     private final AtomicBoolean started = new AtomicBoolean(false);
     private volatile BlockingQueue<T> queue;
@@ -71,6 +82,7 @@ public final class WorkerPool<T> {
         this.workers = workers;
         this.poisonPill = poisonPill;
         this.executor = Executors.newFixedThreadPool(workers, new NamedWorkerThreadFactory());
+        this.latch = new CountDownLatch(workers);
     }
 
     /** Poison pill sentinel'i — producer/servis kuyruğu bu referansla sonlandırmalıdır. */
@@ -82,6 +94,14 @@ public final class WorkerPool<T> {
     public int getWorkerCount() {
         return workers;
     }
+
+    /**
+     * Worker'ların tamamlanmasını beklemek için kullanılan CountDownLatch'i döndürür. Her worker
+     * çıkarken latch'i bir azaltır; {@code getLatch().await()} tüm worker'lar bitince döner.
+     *
+     * @return WorkerPool tarafından yönetilen CountDownLatch nesnesi
+     */
+
 
     /**
      * Worker'ları başlatır; her biri {@code queue}'yu tüketmeye başlar. Görevler bu çağrıdan
@@ -100,7 +120,7 @@ public final class WorkerPool<T> {
             // submit değil execute: dönen Future'ı kullanmıyoruz. submit ile kaçan bir istisna
             // Future'da saklanıp sessizce yutulurdu; execute ile thread'in
             // UncaughtExceptionHandler'ına düşüp görünür olur (fire-and-forget).
-            executor.execute(new PriceWorker<>(queue, processor, poisonPill));
+            executor.execute(new PriceWorker<>(queue, processor, poisonPill, latch));
         }
     }
 
