@@ -1,6 +1,7 @@
 package com.infina.cryptopricesimulator.engine;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,6 +18,10 @@ import lombok.extern.slf4j.Slf4j;
  * çıkar. FIFO kuyrukta sentinel'ler gerçek görevlerden sonra sıralandığı için worker çıkmadan
  * önce tüm gerçek görevler işlenmiş olur.
  *
+ * <p><b>Tamamlanma (CountDownLatch):</b> Worker döngüden çıkarken (poison pill, interrupt veya
+ * beklenmedik durum — {@code finally}) {@link #latch}'i bir azaltır. Böylece çağıran katman
+ * {@code latch.await()} ile tüm worker'ların bittiğini graceful shutdown'dan önce bekleyebilir.
+ *
  * <p><b>Hata dayanıklılığı:</b> {@code process} bir {@link RuntimeException} fırlatırsa worker
  * ölmez; hata loglanır ve sıradaki göreve geçilir. Bir worker ölseydi kalan pill'lerden birini
  * kimse tüketemez, sınırlı kuyrukta {@code signalNoMoreTasks()} put'u sonsuza bloklanabilirdi.
@@ -30,6 +35,7 @@ public final class PriceWorker<T> implements Runnable {
     private final BlockingQueue<T> queue;
     private final TaskProcessor<T> processor;
     private final T poisonPill;
+    private final CountDownLatch latch;
 
     @Override
     public void run() {
@@ -56,6 +62,9 @@ public final class PriceWorker<T> implements Runnable {
             // shutdownNow() sonrası normal akış: interrupt flag'ini geri koyup temiz çıkış yap.
             log.debug("[{}] interrupted, stopping", Thread.currentThread().getName());
             Thread.currentThread().interrupt();
+        } finally {
+            // Worker hangi yolla çıkarsa çıksın latch mutlaka azaltılır (aksi hâlde await asılı kalır).
+            latch.countDown();
         }
     }
 }
