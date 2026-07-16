@@ -1,0 +1,168 @@
+2026-07-14 20:43:34
+Full thread dump OpenJDK 64-Bit Server VM (24.0.1+9-30 mixed mode, sharing):
+
+Threads class SMR info:
+_java_thread_list=0x0000000c0f28b500, length=17, elements={
+0x000000010122a050, 0x0000000c0ed86000, 0x0000000c0ed86800, 0x0000000c0ed87000,
+0x0000000c0ed87800, 0x0000000c0edcc000, 0x0000000c0edcc800, 0x0000000c0edcd000,
+0x0000000c0edcd800, 0x0000000c0edce800, 0x0000000c0edcf800, 0x0000000c0ef14000,
+0x0000000c0ef14800, 0x0000000c0ef15800, 0x0000000c0ef16000, 0x0000000c0ef16800,
+0x0000000c0ef17000
+}
+
+"main" #3 [4867] prio=5 os_prio=31 cpu=95.38ms elapsed=0.39s tid=0x000000010122a050 nid=4867 waiting on condition  [0x000000016f726000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleepNanos0(java.base@24.0.1/Native Method)
+	at java.lang.Thread.sleepNanos(java.base@24.0.1/Thread.java:482)
+	at java.lang.Thread.sleep(java.base@24.0.1/Thread.java:513)
+	at com.infina.cryptopricesimulator.engine.ThreadDumpDemo.main(ThreadDumpDemo.java:36)
+
+"Reference Handler" #14 [24323] daemon prio=10 os_prio=31 cpu=0.07ms elapsed=0.37s tid=0x0000000c0ed86000 nid=24323 waiting on condition  [0x000000017089e000]
+   java.lang.Thread.State: RUNNABLE
+	at java.lang.ref.Reference.waitForReferencePendingList(java.base@24.0.1/Native Method)
+	at java.lang.ref.Reference.processPendingReferences(java.base@24.0.1/Reference.java:246)
+	at java.lang.ref.Reference$ReferenceHandler.run(java.base@24.0.1/Reference.java:208)
+
+"Finalizer" #15 [24835] daemon prio=8 os_prio=31 cpu=0.04ms elapsed=0.37s tid=0x0000000c0ed86800 nid=24835 in Object.wait()  [0x0000000170aaa000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait0(java.base@24.0.1/Native Method)
+	- waiting on <0x00000006f1c02390> (a java.lang.ref.ReferenceQueue$Lock)
+	at java.lang.Object.wait(java.base@24.0.1/Object.java:389)
+	at java.lang.Object.wait(java.base@24.0.1/Object.java:351)
+	at java.lang.ref.ReferenceQueue.remove0(java.base@24.0.1/ReferenceQueue.java:138)
+	at java.lang.ref.ReferenceQueue.remove(java.base@24.0.1/ReferenceQueue.java:229)
+	- locked <0x00000006f1c02390> (a java.lang.ref.ReferenceQueue$Lock)
+	at java.lang.ref.Finalizer$FinalizerThread.run(java.base@24.0.1/Finalizer.java:165)
+
+"Signal Dispatcher" #16 [29187] daemon prio=9 os_prio=31 cpu=0.10ms elapsed=0.37s tid=0x0000000c0ed87000 nid=29187 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"Service Thread" #17 [28931] daemon prio=9 os_prio=31 cpu=0.02ms elapsed=0.37s tid=0x0000000c0ed87800 nid=28931 runnable  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"Monitor Deflation Thread" #18 [25603] daemon prio=9 os_prio=31 cpu=0.02ms elapsed=0.37s tid=0x0000000c0edcc000 nid=25603 runnable  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"C2 CompilerThread0" #19 [26115] daemon prio=9 os_prio=31 cpu=21.60ms elapsed=0.37s tid=0x0000000c0edcc800 nid=26115 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+   No compile task
+
+"C1 CompilerThread0" #22 [26371] daemon prio=9 os_prio=31 cpu=44.83ms elapsed=0.37s tid=0x0000000c0edcd000 nid=26371 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+   No compile task
+
+"Notification Thread" #23 [27907] daemon prio=9 os_prio=31 cpu=0.02ms elapsed=0.37s tid=0x0000000c0edcd800 nid=27907 runnable  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"Common-Cleaner" #24 [26883] daemon prio=8 os_prio=31 cpu=0.06ms elapsed=0.37s tid=0x0000000c0edce800 nid=26883 in Object.wait()  [0x00000001718fe000]
+   java.lang.Thread.State: TIMED_WAITING (on object monitor)
+	at java.lang.Object.wait0(java.base@24.0.1/Native Method)
+	- waiting on <0x00000006f1c1c270> (a java.lang.ref.ReferenceQueue$Lock)
+	at java.lang.Object.wait(java.base@24.0.1/Object.java:389)
+	at java.lang.ref.ReferenceQueue.remove0(java.base@24.0.1/ReferenceQueue.java:124)
+	at java.lang.ref.ReferenceQueue.remove(java.base@24.0.1/ReferenceQueue.java:215)
+	- locked <0x00000006f1c1c270> (a java.lang.ref.ReferenceQueue$Lock)
+	at jdk.internal.ref.CleanerImpl.run(java.base@24.0.1/CleanerImpl.java:140)
+	at java.lang.Thread.runWith(java.base@24.0.1/Thread.java:1460)
+	at java.lang.Thread.run(java.base@24.0.1/Thread.java:1447)
+	at jdk.internal.misc.InnocuousThread.run(java.base@24.0.1/InnocuousThread.java:148)
+
+"C2 CompilerThread1" #20 [27651] daemon prio=9 os_prio=31 cpu=21.11ms elapsed=0.36s tid=0x0000000c0edcf800 nid=27651 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+   No compile task
+
+"C2 CompilerThread2" #21 [32771] daemon prio=9 os_prio=31 cpu=14.14ms elapsed=0.36s tid=0x0000000c0ef14000 nid=32771 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+   No compile task
+
+"worker-1" #25 [43267] prio=5 os_prio=31 cpu=0.38ms elapsed=0.29s tid=0x0000000c0ef14800 nid=43267 waiting on condition  [0x0000000171f22000]
+   java.lang.Thread.State: WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@24.0.1/Native Method)
+	- parking to wait for  <0x00000006f1c23410> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(java.base@24.0.1/LockSupport.java:369)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(java.base@24.0.1/AbstractQueuedSynchronizer.java:519)
+	at java.util.concurrent.ForkJoinPool.unmanagedBlock(java.base@24.0.1/ForkJoinPool.java:3945)
+	at java.util.concurrent.ForkJoinPool.managedBlock(java.base@24.0.1/ForkJoinPool.java:3891)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(java.base@24.0.1/AbstractQueuedSynchronizer.java:1751)
+	at java.util.concurrent.ArrayBlockingQueue.take(java.base@24.0.1/ArrayBlockingQueue.java:421)
+	at com.infina.cryptopricesimulator.engine.PriceWorker.run(PriceWorker.java:45)
+	at java.util.concurrent.Executors$RunnableAdapter.call(java.base@24.0.1/Executors.java:545)
+	at java.util.concurrent.FutureTask.run(java.base@24.0.1/FutureTask.java:328)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@24.0.1/ThreadPoolExecutor.java:1095)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@24.0.1/ThreadPoolExecutor.java:619)
+	at java.lang.Thread.runWith(java.base@24.0.1/Thread.java:1460)
+	at java.lang.Thread.run(java.base@24.0.1/Thread.java:1447)
+
+"worker-2" #26 [33283] prio=5 os_prio=31 cpu=0.80ms elapsed=0.29s tid=0x0000000c0ef15800 nid=33283 waiting on condition  [0x000000017212e000]
+   java.lang.Thread.State: WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@24.0.1/Native Method)
+	- parking to wait for  <0x00000006f1c23410> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(java.base@24.0.1/LockSupport.java:369)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(java.base@24.0.1/AbstractQueuedSynchronizer.java:519)
+	at java.util.concurrent.ForkJoinPool.unmanagedBlock(java.base@24.0.1/ForkJoinPool.java:3945)
+	at java.util.concurrent.ForkJoinPool.managedBlock(java.base@24.0.1/ForkJoinPool.java:3891)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(java.base@24.0.1/AbstractQueuedSynchronizer.java:1751)
+	at java.util.concurrent.ArrayBlockingQueue.take(java.base@24.0.1/ArrayBlockingQueue.java:421)
+	at com.infina.cryptopricesimulator.engine.PriceWorker.run(PriceWorker.java:45)
+	at java.util.concurrent.Executors$RunnableAdapter.call(java.base@24.0.1/Executors.java:545)
+	at java.util.concurrent.FutureTask.run(java.base@24.0.1/FutureTask.java:328)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@24.0.1/ThreadPoolExecutor.java:1095)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@24.0.1/ThreadPoolExecutor.java:619)
+	at java.lang.Thread.runWith(java.base@24.0.1/Thread.java:1460)
+	at java.lang.Thread.run(java.base@24.0.1/Thread.java:1447)
+
+"worker-3" #27 [42499] prio=5 os_prio=31 cpu=0.18ms elapsed=0.29s tid=0x0000000c0ef16000 nid=42499 waiting on condition  [0x000000017233a000]
+   java.lang.Thread.State: WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@24.0.1/Native Method)
+	- parking to wait for  <0x00000006f1c23410> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(java.base@24.0.1/LockSupport.java:369)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(java.base@24.0.1/AbstractQueuedSynchronizer.java:519)
+	at java.util.concurrent.ForkJoinPool.unmanagedBlock(java.base@24.0.1/ForkJoinPool.java:3945)
+	at java.util.concurrent.ForkJoinPool.managedBlock(java.base@24.0.1/ForkJoinPool.java:3891)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(java.base@24.0.1/AbstractQueuedSynchronizer.java:1751)
+	at java.util.concurrent.ArrayBlockingQueue.take(java.base@24.0.1/ArrayBlockingQueue.java:421)
+	at com.infina.cryptopricesimulator.engine.PriceWorker.run(PriceWorker.java:45)
+	at java.util.concurrent.Executors$RunnableAdapter.call(java.base@24.0.1/Executors.java:545)
+	at java.util.concurrent.FutureTask.run(java.base@24.0.1/FutureTask.java:328)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@24.0.1/ThreadPoolExecutor.java:1095)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@24.0.1/ThreadPoolExecutor.java:619)
+	at java.lang.Thread.runWith(java.base@24.0.1/Thread.java:1460)
+	at java.lang.Thread.run(java.base@24.0.1/Thread.java:1447)
+
+"worker-4" #28 [41987] prio=5 os_prio=31 cpu=0.16ms elapsed=0.29s tid=0x0000000c0ef16800 nid=41987 waiting on condition  [0x0000000172546000]
+   java.lang.Thread.State: WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@24.0.1/Native Method)
+	- parking to wait for  <0x00000006f1c23410> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(java.base@24.0.1/LockSupport.java:369)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(java.base@24.0.1/AbstractQueuedSynchronizer.java:519)
+	at java.util.concurrent.ForkJoinPool.unmanagedBlock(java.base@24.0.1/ForkJoinPool.java:3945)
+	at java.util.concurrent.ForkJoinPool.managedBlock(java.base@24.0.1/ForkJoinPool.java:3891)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(java.base@24.0.1/AbstractQueuedSynchronizer.java:1751)
+	at java.util.concurrent.ArrayBlockingQueue.take(java.base@24.0.1/ArrayBlockingQueue.java:421)
+	at com.infina.cryptopricesimulator.engine.PriceWorker.run(PriceWorker.java:45)
+	at java.util.concurrent.Executors$RunnableAdapter.call(java.base@24.0.1/Executors.java:545)
+	at java.util.concurrent.FutureTask.run(java.base@24.0.1/FutureTask.java:328)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@24.0.1/ThreadPoolExecutor.java:1095)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@24.0.1/ThreadPoolExecutor.java:619)
+	at java.lang.Thread.runWith(java.base@24.0.1/Thread.java:1460)
+	at java.lang.Thread.run(java.base@24.0.1/Thread.java:1447)
+
+"Attach Listener" #29 [33539] daemon prio=9 os_prio=31 cpu=0.29ms elapsed=0.10s tid=0x0000000c0ef17000 nid=33539 waiting on condition  [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"VM Thread" os_prio=31 cpu=0.32ms elapsed=0.38s tid=0x0000000c0f089c00 nid=19971 runnable  
+
+"VM Periodic Task Thread" os_prio=31 cpu=0.09ms elapsed=0.38s tid=0x0000000c0f08a400 nid=21263 waiting on condition  
+
+"G1 Service" os_prio=31 cpu=0.02ms elapsed=0.39s tid=0x0000000c0f088c00 nid=21507 runnable  
+
+"G1 Refine#0" os_prio=31 cpu=0.02ms elapsed=0.39s tid=0x0000000101237280 nid=16643 runnable  
+
+"G1 Conc#0" os_prio=31 cpu=0.01ms elapsed=0.39s tid=0x0000000c0f088000 nid=13315 runnable  
+
+"G1 Main Marker" os_prio=31 cpu=0.02ms elapsed=0.39s tid=0x00000001012344f0 nid=14339 runnable  
+
+"GC Thread#0" os_prio=31 cpu=0.02ms elapsed=0.39s tid=0x00000001012336a0 nid=12803 runnable  
+
+JNI global refs: 9, weak refs: 0
+
