@@ -8,6 +8,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,9 +53,11 @@ import org.slf4j.LoggerFactory;
  *
  * @param <T> görev tipi
  */
+@RequiredArgsConstructor
+@Getter
+@Slf4j
 public final class WorkerPool<T> {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
     private final int workers;
     private final ExecutorService executor;
@@ -95,9 +101,7 @@ public final class WorkerPool<T> {
      *
      * @return WorkerPool tarafından yönetilen CountDownLatch nesnesi
      */
-    public CountDownLatch getLatch() {
-        return latch;
-    }
+
 
     /**
      * Worker'ları başlatır; her biri {@code queue}'yu tüketmeye başlar. Görevler bu çağrıdan
