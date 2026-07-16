@@ -23,7 +23,18 @@ import org.junit.jupiter.api.Test;
  */
 class WorkerPoolTest {
 
+    private static final int WORKERS = 4;
+    /** Sınırlı kuyruk kapasitesi; worker'ların producer'a yetişmesini de test eder. */
+    private static final int QUEUE_CAPACITY = 1_000;
+    /**
+     * Graceful shutdown için üst sınır (saniye). Bir sınır olarak seçildi; testler doğru
+     * çalışıyorsa worker'lar poison pill'den hemen sonra biteceği için buna asla dayanmaz.
+     * Yavaş CI ortamlarında yanlış-negatif olmaması için cömert tutuldu.
+     */
+    private static final long SHUTDOWN_TIMEOUT_SECONDS = 30;
     private static final Pattern WORKER_NAME = Pattern.compile("worker-\\d+");
+    /** Paylaşılan tekil poison pill; gerçek görevler {@code seq >= 1} olduğundan çakışmaz. */
+    private static final Task POISON = new Task(-1);
 
     /** Test görevi (domain modelinden bağımsız). */
     private record Task(long seq) { }
@@ -31,19 +42,18 @@ class WorkerPoolTest {
     @Test
     @DisplayName("Tüm görevler tam olarak bir kez işlenir; hiç görev kaybı yok")
     void processesEveryTaskExactlyOnce() {
-        int workers = 4;
         int updates = 50_000;
 
         AtomicLong processed = new AtomicLong();
         TaskProcessor<Task> processor = task -> processed.incrementAndGet();
 
-        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(1_000);
-        WorkerPool<Task> pool = new WorkerPool<>(workers, new Task(-1));
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+        WorkerPool<Task> pool = new WorkerPool<>(WORKERS, POISON);
         pool.start(queue, processor);
 
         produce(queue, updates);
         pool.signalNoMoreTasks();
-        boolean clean = pool.awaitCompletion(30);
+        boolean clean = pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS);
 
         assertTrue(clean, "Worker'lar süre içinde temiz bitmeliydi (graceful shutdown)");
         assertEquals(updates, processed.get(), "İşlenen görev sayısı gönderilenle eşleşmeli");
@@ -52,22 +62,21 @@ class WorkerPoolTest {
     @Test
     @DisplayName("Thread'ler worker-1..N olarak isimlendirilir; N worker'dan fazla thread yok")
     void namesThreadsWorker1ToN() {
-        int workers = 4;
         int updates = 5_000;
 
         Set<String> threadNames = ConcurrentHashMap.newKeySet();
         TaskProcessor<Task> processor = task -> threadNames.add(Thread.currentThread().getName());
 
-        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(500);
-        WorkerPool<Task> pool = new WorkerPool<>(workers, new Task(-1));
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+        WorkerPool<Task> pool = new WorkerPool<>(WORKERS, POISON);
         pool.start(queue, processor);
 
         produce(queue, updates);
         pool.signalNoMoreTasks();
-        pool.awaitCompletion(30);
+        pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS);
 
-        assertTrue(threadNames.size() <= workers,
-                "Sabit havuz: en fazla " + workers + " thread iş yapmalı, görülen: " + threadNames);
+        assertTrue(threadNames.size() <= WORKERS,
+                "Sabit havuz: en fazla " + WORKERS + " thread iş yapmalı, görülen: " + threadNames);
         for (String name : threadNames) {
             assertTrue(WORKER_NAME.matcher(name).matches(),
                     "Beklenen worker-N formatı, görülen: " + name);
@@ -77,45 +86,46 @@ class WorkerPoolTest {
     @Test
     @DisplayName("Boş kuyrukta sinyal sonrası graceful shutdown hızlıca döner")
     void gracefulShutdownReturnsPromptly() {
-        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
-        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(16);
+        WorkerPool<Task> pool = new WorkerPool<>(WORKERS, POISON);
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
         pool.start(queue, task -> { /* no-op */ });
 
         pool.signalNoMoreTasks();
-        assertTrue(pool.awaitCompletion(5),
+        assertTrue(pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS),
                 "Boş iş yükünde graceful shutdown hızlıca dönmeli");
     }
+
     @Test
     @DisplayName("Geçersiz worker sayısı IllegalArgumentException fırlatır")
     void rejectsInvalidWorkerCount() {
         assertThrows(IllegalArgumentException.class,
-                () -> new WorkerPool<>(0, new Task(-1)));
+                () -> new WorkerPool<>(0, POISON));
     }
 
     @Test
     @DisplayName("null poison pill IllegalArgumentException fırlatır")
     void rejectsNullPoisonPill() {
         assertThrows(IllegalArgumentException.class,
-                () -> new WorkerPool<Task>(4, null));
+                () -> new WorkerPool<Task>(WORKERS, null));
     }
 
     @Test
     @DisplayName("start() öncesi signalNoMoreTasks() IllegalStateException fırlatır")
     void signalBeforeStartFails() {
-        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
+        WorkerPool<Task> pool = new WorkerPool<>(WORKERS, POISON);
         assertThrows(IllegalStateException.class, pool::signalNoMoreTasks);
     }
 
     @Test
     @DisplayName("İkinci start() IllegalStateException fırlatır (tek kullanımlık)")
     void secondStartFails() {
-        WorkerPool<Task> pool = new WorkerPool<>(2, new Task(-1));
-        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(16);
+        WorkerPool<Task> pool = new WorkerPool<>(WORKERS, POISON);
+        BlockingQueue<Task> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
         pool.start(queue, task -> { });
         assertThrows(IllegalStateException.class,
                 () -> pool.start(queue, task -> { }));
         pool.signalNoMoreTasks();
-        pool.awaitCompletion(5); // temizlik
+        pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS); // temizlik
     }
 
     /** {@code count} adet gerçek görev üretip kuyruğa koyar. */
