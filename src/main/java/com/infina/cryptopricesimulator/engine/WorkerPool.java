@@ -1,25 +1,33 @@
 package com.infina.cryptopricesimulator.engine;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * Sabit boyutlu worker havuzunun yaşam döngüsünü yönetir (#6, #7).
+ *
+ * <p><b>Tek kullanımlıktır:</b> bir {@code WorkerPool} örneği tam olarak BİR simülasyon
+ * koşusuna karşılık gelir. {@link #awaitCompletion} executor'ı kapatır; kapanan bir havuz
+ * tekrar {@link #start} edilemez. Yönergenin "önce unsafe, sonra safe" akışında çağıran
+ * katman İKİ ayrı örnek yaratmalıdır (biri unsafe processor, biri safe processor ile).
  *
  * <p>Sorumlulukları:
  * <ul>
  *   <li><b>#6</b> — {@code workers} adet worker'ı {@link Executors#newFixedThreadPool} ile
  *       çalıştırır; her görev için yeni thread AÇMAZ. Özel {@link ThreadFactory} thread'lere
  *       {@code worker-1..N} anlamlı isimlerini verir (thread dump okunabilirliği, §14).</li>
- *   <li><b>Tamamlanma</b> — poison pill: {@link #signalNoMoreTasks()} kuyruğa her worker için
- *       bir sentinel koyar; worker'lar bunu görünce çıkar.</li>
+ *   <li><b>Tamamlanma</b> — iki tamamlayıcı mekanizma: (1) poison pill:
+ *       {@link #signalNoMoreTasks()} kuyruğa her worker için bir sentinel koyar; worker'lar bunu
+ *       görünce çıkar. (2) {@link CountDownLatch}: her worker çıkarken latch'i azaltır, böylece
+ *       {@link #getLatch()}.{@code await()} ile worker'ların bitişi shutdown'dan önce beklenebilir.</li>
  *   <li><b>#7</b> — {@link #awaitCompletion(long)} graceful shutdown: shutdown +
  *       awaitTermination, timeout'ta shutdownNow.</li>
  * </ul>
@@ -36,7 +44,7 @@ import java.util.concurrent.CountDownLatch;
  * producer.produceInto(queue);       // gerçek görevler kuyruğa
  * pool.signalNoMoreTasks();          // her worker için 1 poison pill
  * pool.getLatch().await();           // tüm worker'ların görevlerini tamamlamasını bekle
- * pool.awaitCompletion(30);          // tüm görevler bitene kadar bekle + kapat
+ * pool.awaitCompletion(30);          // executor'ı güvenle kapat
  * }</pre>
  *
  * @param <T> görev tipi
@@ -50,6 +58,7 @@ public final class WorkerPool<T> {
     private final T poisonPill;
     private final CountDownLatch latch;
 
+    private final AtomicBoolean started = new AtomicBoolean(false);
     private volatile BlockingQueue<T> queue;
 
     /**
@@ -81,7 +90,8 @@ public final class WorkerPool<T> {
     }
 
     /**
-     * Worker'ların tamamlanmasını beklemek için kullanılan CountDownLatch'i döndürür.
+     * Worker'ların tamamlanmasını beklemek için kullanılan CountDownLatch'i döndürür. Her worker
+     * çıkarken latch'i bir azaltır; {@code getLatch().await()} tüm worker'lar bitince döner.
      *
      * @return WorkerPool tarafından yönetilen CountDownLatch nesnesi
      */
@@ -92,11 +102,21 @@ public final class WorkerPool<T> {
     /**
      * Worker'ları başlatır; her biri {@code queue}'yu tüketmeye başlar. Görevler bu çağrıdan
      * sonra kuyruğa eklenebilir (producer eşzamanlı üretebilir).
+     *
+     * @throws IllegalStateException havuz zaten başlatılmışsa (tek kullanımlıktır — yeni bir
+     *                               koşu için yeni bir {@code WorkerPool} yaratın)
      */
     public void start(BlockingQueue<T> queue, TaskProcessor<T> processor) {
+        if (!started.compareAndSet(false, true)) {
+            throw new IllegalStateException(
+                    "WorkerPool tek kullanımlıktır; zaten başlatılmış. Yeni koşu için yeni örnek yaratın.");
+        }
         this.queue = queue;
         for (int i = 0; i < workers; i++) {
-            executor.submit(new PriceWorker<>(queue, processor, poisonPill, latch));
+            // submit değil execute: dönen Future'ı kullanmıyoruz. submit ile kaçan bir istisna
+            // Future'da saklanıp sessizce yutulurdu; execute ile thread'in
+            // UncaughtExceptionHandler'ına düşüp görünür olur (fire-and-forget).
+            executor.execute(new PriceWorker<>(queue, processor, poisonPill, latch));
         }
     }
 
