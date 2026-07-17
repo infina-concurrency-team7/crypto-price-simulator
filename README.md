@@ -99,9 +99,60 @@ Grup çalışması kapsamında eşzamanlı veri aktarımını sağlamak için Ja
 
 ## Race Condition Gözlemi
 
+Bu simülatörde iki race condition noktası bulunur:
+
+1. **Sayaç (`count++`):** Oku-artır-yaz (read-modify-write) işlemi atomik değildir.
+   İki thread aynı anda `count=100` okur, ikisi de `101` yazar → bir güncelleme kaybolur.
+
+2. **Coin state (çok alanlı tutarsızlık):** `currentPrice`, `updateCount`, `lastDelta` ve
+   `lastUpdatedBy` alanları birlikte güncellenmesi gereken bir bütündür. Lock olmadan
+   bir thread fiyatı günceller ama sayacı artıramadan başka thread araya girer →
+   alanlar birbirleriyle tutarsız kalır.
+
+```
+Çalıştırma 1 (seed=42, workers=4, updates=50.000):
+BTC   beklenen: 59.387 | güvenli: 59.387 ✓ | güvensiz: 59.370 ✗ (17 sapma)
+ETH   beklenen: -3.122 | güvenli: -3.122 ✓ | güvensiz: -3.253 ✗ (131 sapma)
+SOL   beklenen: -2.445 | güvenli: -2.445 ✓ | güvensiz: -2.502 ✗ (57 sapma)
+Sayaç beklenen: 50.000 | güvenli: 50.000 ✓ | güvensiz: 49.991 ✗ (9 kayıp)
+
+Çalıştırma 2 (seed=42, workers=4, updates=50.000):
+BTC   beklenen: 59.387 | güvenli: 59.387 ✓ | güvensiz: 59.281 ✗ (106 sapma)
+ETH   beklenen: -3.122 | güvenli: -3.122 ✓ | güvensiz: -3.228 ✗ (106 sapma)
+SOL   beklenen: -2.445 | güvenli: -2.445 ✓ | güvensiz: -2.300 ✗ (145 sapma)
+Sayaç beklenen: 50.000 | güvenli: 50.000 ✓ | güvensiz: 49.987 ✗ (13 kayıp)
+```
+
+> **Gözlem:** 2/2 çalıştırmada güvensiz sonuçlar bozuldu ve her seferinde farklı değerler üretti. Race condition non-deterministic'tir — aynı input ile farklı output verir. Worker/görev sayısı artınca sapma büyür çünkü çakışma olasılığı artar.
+
 ## Güvenli Çözüm
 
+Coin state `ReentrantLock` ile korunur. Tek başına `AtomicLong` yetmez çünkü `currentPrice`, `updateCount`, `lastDelta` ve `lastUpdatedBy` alanlarının hepsi tek bir atomik işlem içinde güncellenmeli — aksi halde alanlar arası tutarsızlık oluşur.
+
+`ReentrantLock` bu 4 alanı tek kritik bölgede gruplar:
+
+```java
+lock.lock();
+try {
+    currentPrice += delta;
+    updateCount++;
+    lastDelta = delta;
+    lastUpdatedBy = Thread.currentThread().getName();
+} finally {
+    lock.unlock();
+}
+```
+
+Sayaç için ise tek bir `long` değer güncellendiğinden `AtomicLong` (CAS) yeterlidir — lock overhead'ine gerek yoktur.
+
 ## Invariant ve Doğruluk Kanıtı
+
+```
+safePrice       == initialPrice + sum(all deltas for coin)   →  GEÇTİ ✓
+safeUpdateCount == o coin için üretilen görev sayısı         →  GEÇTİ ✓
+```
+
+Her iki çalıştırmada da `safeInvariantPassed: true` döndü. Safe fiyatlar beklenen değerlerle birebir eşleşti — `ReentrantLock` hiçbir güncellemenin kaybolmamasını garanti etti.
 
 
 ## Performans Sonuçları
