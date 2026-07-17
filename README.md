@@ -93,7 +93,7 @@ Grup çalışması kapsamında eşzamanlı veri aktarımını sağlamak için Ja
 
 ### Karşılaştırma Tablosu
 
-| Özellik | `LinkedBlockingQueue` | `LinkedBlockingQueue` | `ConcurrentLinkedQueue` |
+| Özellik | `ArrayBlockingQueue` | `LinkedBlockingQueue` | `ConcurrentLinkedQueue` |
 | :--- | :--- | :--- | :--- |
 | **Kapasite Sınırı** | Zorunlu (Bounded) | İsteğe Bağlı (Bounded/Unbounded) | Sınırsız (Unbounded) |
 | **Kilitleme Modeli** | **Tek Lock (Single-Lock):** Hem `put` hem `take` aynı lock'ı yarışarak kullanır. | **Çift Lock (Two-Queue Lock):** `put` ve `take` işlemleri farklı kilitler kullanır. | Kilit barındırmaz (Lock-free / CAS tabanlı). |
