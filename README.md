@@ -1,14 +1,13 @@
 # Conflict Resolution Report: WorkerPool.java
 
-This document describes how the Git merge conflict in `WorkerPool.java` was resolved, detailing the differences between the incoming changes and the final combined result.
+Bu doküman, WorkerPool.java dosyasında oluşan Git birleştirme (merge) çakışmasının nasıl çözüldüğünü, dallar arasındaki farklılıkları ve nihai çözümün gerekçelerini açıklamaktadır.
 
-## 1. Summary of the Conflict
+## 1.Conflict Özeti
+Çakışma, package com.infina.cryptopricesimulator.engine altında bulunan WorkerPool<T> sınıfındaki awaitCompletion(long timeoutSeconds) metodunda meydana gelmiştir.
 
-The conflict occurred within the `package com.infina.cryptopricesimulator.engine` inside the `WorkerPool<T>` class—specifically within the `awaitCompletion(long timeoutSeconds)` method. 
+Her iki dal da sınıfın temel yapısını, çok iş parçacıklı (multi-threading) çalışma mantığını, Lombok anotasyonlarını (@Getter, @RequiredArgsConstructor, @Slf4j) ve güvenlik mekanizmalarını korumuştur. Çakışmanın tek nedeni, zarif kapatma (graceful shutdown) süresi aşıldığında yazdırılan uyarı (warning) logunun ifade biçimindeki farklılıktır.
 
-Both branches preserved the entire structural logic, core multi-threading patterns, Lombok annotations (`@Getter`, `@RequiredArgsConstructor`, `@Slf4j`), and safety mechanisms. The single behavioral variance was the exact phrasing and clarity of the fallback warning log when a graceful shutdown timeouts.
-
-## 2. Code Comparison & Evaluation
+## 2. Kod Karşılaştırması ve Değerlendirme
 
 ### Branch A (Source/Current)
 ```java
@@ -28,10 +27,12 @@ if (!executor.awaitTermination(timeoutSeconds, TimeUnit.SECONDS)) {
 }
 ```
 
-## 3. Resolution Logic
+## 3. Çözüm Gerekçesi
 
-1. **Log Phrasing Selection:** The phrasing from Branch B (`"Workers did not finish within {}s; forcing shutdownNow()"`) was chosen as it aligns closer with standard production logging guidelines by explicitly stating that tasks failed to finish within the allocated temporal bounds, rather than just stating they are still running.
-2. **Dead Javadoc Preservation:** An empty Javadoc section intended for `getLatch()` was left intact to prevent breaking downstream code structure since `@Getter` automatically generates the accessor under the hood.
-3. **Dead Import Cleanliness:** Redundant manual `org.slf4j.Logger` and `LoggerFactory` imports were bypassed in favor of Lombok's native `@Slf4j` handler used across the engine architecture.
+1. **Log Mesajının Seçimi:** Branch B 'deki (`"Workers did not finish within {}s; forcing shutdownNow()"`) ifadesi tercih edilmiştir. Bu mesaj, iş parçacıklarının belirlenen süre içerisinde tamamlanamadığını açık ve doğrudan ifade ettiği için üretim ortamı (production) loglama standartlarına daha uygundur. Böylece zaman aşımı (timeout) sebebi daha net anlaşılabilmektedir.
+2. **Javadoc Yapısının Korunması:**  `getLatch()`metodu için bırakılmış boş Javadoc bölümü korunmuştur. Çünkü erişim metodu Lombok'un @Getter anotasyonu tarafından otomatik olarak oluşturulmaktadır ve mevcut dosya yapısının korunması olası uyumluluk sorunlarını önlemektedir.
+3. **Gereksiz Importların Temizlenmesi:** Manuel olarak eklenmiş `org.slf4j.Logger` ve `LoggerFactory` importları kullanılmamıştır. Bunun yerine proje genelinde tercih edilen Lombok'un`@Slf4j` anotasyonu kullanılarak kod tutarlılığı korunmuştur.
 
-The final consolidated file has been fully verified for semantic completeness and syntactical correctness.S
+## 4. Çözüm Gerekçesi
+
+Birleştirme işlemi sonucunda ortaya çıkan dosya, hem işlevsel davranışı hem de çok iş parçacıklı çalışma mantığını koruyacak şekilde başarıyla birleştirilmiştir. Seçilen log mesajı daha açıklayıcı hale getirilmiş, gereksiz importlar temizlenmiş ve mevcut mimari yapı bozulmadan korunmuştur. Nihai sürüm sözdizimi (syntax) ve anlamsal bütünlük (semantic integrity) açısından doğrulanmış olup güvenli şekilde kullanılmaya hazırdır.
