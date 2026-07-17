@@ -10,5 +10,7 @@ public record CoinStatResponse(
         long safe,
         long expectedUpdateCount,
         long unsafeUpdateCount,
-        long safeUpdateCount
+        long safeUpdateCount,
+        long safeLastDelta,        // Safe simülasyonun son deltasını taşımak için ekledik
+        String safeLastUpdatedBy   // En son güncelleyen gerçek thread (worker) ismini taşımak için ekledik
 ) {}

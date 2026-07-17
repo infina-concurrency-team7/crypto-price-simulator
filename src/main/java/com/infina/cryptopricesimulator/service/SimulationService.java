@@ -1,10 +1,12 @@
 package com.infina.cryptopricesimulator.service;
 
 import com.infina.cryptopricesimulator.api.exception.SimulationAlreadyRunningException;
+import com.infina.cryptopricesimulator.api.exception.SimulationNotFoundException;
 import com.infina.cryptopricesimulator.counter.Counter;
 import com.infina.cryptopricesimulator.counter.SafeCounter;
 import com.infina.cryptopricesimulator.counter.UnsafeCounter;
 import com.infina.cryptopricesimulator.dto.CoinStatResponse;
+import com.infina.cryptopricesimulator.dto.SafeCoinResponse;
 import com.infina.cryptopricesimulator.dto.SimulationResultResponse;
 import com.infina.cryptopricesimulator.engine.WorkerPool;
 import com.infina.cryptopricesimulator.model.Coin;
@@ -27,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @Slf4j
@@ -45,11 +48,8 @@ public class SimulationService {
     private static final long MILLIS_PER_SECOND = 1000L;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<SimulationResultResponse> lastResult = new AtomicReference<>();
 
-    /**
-     * Simülasyonu çalıştırır: expected (tek thread), unsafe (multi-thread), safe (multi-thread).
-     * Aynı anda sadece bir simülasyon çalışabilir — ikinci istek 409 döner.
-     */
     public SimulationResultResponse runSimulation(int workers, int updates, long seed) {
 
         if (!running.compareAndSet(false, true)) {
@@ -78,7 +78,7 @@ public class SimulationService {
             // Verify invariant: safe results must match expected
             boolean invariantPassed = verifyInvariant(safeStates, expectedResults);
 
-            return new SimulationResultResponse(
+            SimulationResultResponse response = new SimulationResultResponse(
                     seed, updates,
                     unsafeCounter.count(), safeCounter.count(),
                     workers,
@@ -88,9 +88,35 @@ public class SimulationService {
                     invariantPassed,
                     buildCoinStats(unsafeStates, safeStates, expectedResults));
 
+            lastResult.set(response);
+            return response;
+
         } finally {
             running.set(false);
         }
+    }
+
+    // ─── Public accessors (GET /stats, GET /coins) ───────────────────
+
+    public SimulationResultResponse getLastResult() {
+        SimulationResultResponse result = lastResult.get();
+        if (result == null) {
+            throw new SimulationNotFoundException();
+        }
+        return result;
+    }
+
+    public List<SafeCoinResponse> getLastSafeCoins() {
+        SimulationResultResponse result = getLastResult();
+        return result.coins().stream()
+                .map(c -> new SafeCoinResponse(
+                        c.coin().name(),
+                        c.initial(),
+                        c.safe(),
+                        c.safeUpdateCount(),
+                        c.safeLastDelta(),
+                        c.safeLastUpdatedBy()))
+                .toList();
     }
 
     // ─── Private helper methods ─────────────────────────────────────────
@@ -172,7 +198,9 @@ public class SimulationService {
                     safeSnap.currentPrice(),
                     exp.expectedUpdateCount(),
                     unsafeSnap.updateCount(),
-                    safeSnap.updateCount()
+                    safeSnap.updateCount(),
+                    safeSnap.lastDelta(),
+                    safeSnap.lastUpdatedBy()
             ));
         }
         return stats;
