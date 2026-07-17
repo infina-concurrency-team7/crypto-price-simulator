@@ -27,8 +27,8 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -136,7 +136,7 @@ public class SimulationService {
                                      int workers) {
 
         PriceUpdateTask poisonPill = new PriceUpdateTask(POISON_PILL_SEQUENCE, Coin.BTC, POISON_PILL_DELTA);
-        BlockingQueue<PriceUpdateTask> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+        BlockingQueue<PriceUpdateTask> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
         WorkerPool<PriceUpdateTask> pool = new WorkerPool<>(workers, poisonPill);
 
         pool.start(queue, task -> {

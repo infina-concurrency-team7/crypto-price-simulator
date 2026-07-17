@@ -294,7 +294,7 @@ Simülasyon çalışırken `jstack` ile alınan thread dump kesiti (workers=4, u
     at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
 
 "http-nio-8080-exec-4" #39 prio=5 WAITING (parking)
-    at java.util.concurrent.ArrayBlockingQueue.put(ArrayBlockingQueue.java:370)
+    at java.util.concurrent.LinkedBlockingQueue.put(LinkedBlockingQueue.java:320)
     at com.infina.cryptopricesimulator.service.SimulationService.enqueueTasks(SimulationService.java:201)
     at com.infina.cryptopricesimulator.service.SimulationService.runSingleSimulation(SimulationService.java:149)
 ```
