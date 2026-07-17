@@ -24,9 +24,9 @@ class SimulationControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private static final String API_SIMULATE = "/api/simulate";
-    private static final String API_STATS = "/api/stats";
-    private static final String API_COINS = "/api/coins";
+    private static final String API_SIMULATE = "/api/v1/simulate";
+    private static final String API_STATS = "/api/v1/stats";
+    private static final String API_COINS = "/api/v1/coins";
     private static final String WORKER_REGEX = "^worker-\\d+$";
 
     @Nested
