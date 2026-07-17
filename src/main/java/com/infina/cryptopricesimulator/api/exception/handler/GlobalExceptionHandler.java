@@ -1,7 +1,8 @@
-package com.infina.cryptopricesimulator.api;
+package com.infina.cryptopricesimulator.api.exception.handler;
 
-import com.infina.cryptopricesimulator.dto.ErrorResponse;
+import com.infina.cryptopricesimulator.api.dto.ErrorResponse;
 import com.infina.cryptopricesimulator.api.exception.SimulationAlreadyRunningException;
+import com.infina.cryptopricesimulator.api.exception.SimulationNotFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -47,7 +48,14 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", e.getMessage()));
     }
 
-//BEKLENMEYEN SİSTEM HATALARI (HTTP 500 - INTERNAL SERVER ERROR)
+    // HENÜZ SİMÜLASYON ÇALIŞTIRILMAMIŞ (HTTP 404 - NOT FOUND)
+    @ExceptionHandler(SimulationNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleSimulationNotFound(SimulationNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", e.getMessage()));
+    }
+
+    // BEKLENMEYEN SİSTEM HATALARI (HTTP 500 - INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception e){
 

@@ -1,6 +1,5 @@
-package com.infina.cryptopricesimulator.api;
+package com.infina.cryptopricesimulator.api.controller;
 
-import com.infina.cryptopricesimulator.api.controller.SimulationController;
 import com.infina.cryptopricesimulator.service.SimulationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,7 +36,6 @@ class SimulationControllerIntegrationTest {
         @DisplayName("Tam simülasyon akışı: Simüle Et -> İstatistikleri Al -> Coinleri Al")
         void shouldExecuteFullSimulationWorkflowSuccessfully() throws Exception {
 
-            // ADIM 1: Simülasyon Parametrelerini Hazırla ve Çalıştır (POST)
             SimulationParams validParams = new SimulationParams("1000", "4", "42");
 
             performSimulation(validParams)
@@ -48,14 +46,12 @@ class SimulationControllerIntegrationTest {
                     .andExpect(jsonPath("$.safeInvariantPassed", is(true)))
                     .andExpect(jsonPath("$.coins", hasSize(3)));
 
-            // ADIM 2: Simülasyon Sonrası İstatistikleri Doğrula (GET /api/stats)
             mockMvc.perform(get(API_STATS).contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.submittedUpdates", is(1000)))
                     .andExpect(jsonPath("$.safeInvariantPassed", is(true)))
                     .andExpect(jsonPath("$.coins[0].safeLastUpdatedBy", matchesPattern(WORKER_REGEX)));
 
-            // ADIM 3: Simülasyon Sonrası Güncel Coin Durumlarını Doğrula (GET /api/coins)
             mockMvc.perform(get(API_COINS).contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(3)))
