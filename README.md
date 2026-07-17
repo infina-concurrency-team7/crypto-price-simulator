@@ -302,6 +302,17 @@ Araç: Çözüm için IntelliJ IDEA'nın Merge Tool aracı kullanıldı
 
 ## Testler
 
+Toplam **7 test sınıfı**, **30 test metodu**. Çalıştırmak için: `mvn test`
+
+| Test Sınıfı | Test Sayısı | Kapsam |
+|---|---:|---|
+| `SimulationServiceTest` | 10 | Happy path, deterministic seed, worker varyasyonları, AtomicBoolean guard, edge case |
+| `TaskProducerTest` | 8 | Görev üretimi, seed tekrarlanabilirliği, sınır değerler |
+| `WorkerPoolTest` | 7 | Görev işleme, thread isimlendirme, graceful shutdown, hata durumları |
+| `SimulationControllerIntegrationTest` | 2 | Uçtan uca simülasyon akışı, validation (HTTP 400) |
+| `CoinStateInvariantTest` | 1 | Safe fiyat invariant doğrulaması |
+| `SafeCounterStressTest` | 1 | AtomicLong thread-safety stres testi |
+| `CryptoPriceSimulatorApplicationTests` | 1 | Spring Boot context yükleme |
 
 ## Grup Üyeleri ve Katkıları
 
