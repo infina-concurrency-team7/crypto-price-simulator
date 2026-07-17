@@ -2,40 +2,38 @@ package com.infina.cryptopricesimulator;
 
 import com.infina.cryptopricesimulator.metrics.InvariantChecker;
 import com.infina.cryptopricesimulator.model.Coin;
-import com.infina.cryptopricesimulator.model.Snapshot;
+import com.infina.cryptopricesimulator.queue.ExpectedCoinCalculatedResult;
+import com.infina.cryptopricesimulator.state.CoinState;
+import com.infina.cryptopricesimulator.state.SafeCoinState;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import java.util.List;
+
+import java.util.EnumMap;
 import java.util.Map;
 
-class CoinStateInvariantTest { // <-- "public" kaldırıldı!
-
-    private final InvariantChecker checker = new InvariantChecker();
+class CoinStateInvariantTest {
 
     @Test
-    void whenSafePricesMatchExpected_thenInvariantShouldPass() { // <-- "public" yok!
-        // GIVEN: Beklenen (Expected) fiyat listesi artık Coin enum ile tutuluyor
-        Map<Coin, Long> expectedPrices = Map.of(
-                Coin.BTC, 60120L,
-                Coin.ETH, 2975L
-        );
+    void whenSafePricesMatchExpected_thenInvariantShouldPass() {
+        // GIVEN: Safe coin states with known deltas applied
+        Map<Coin, CoinState> safeStates = new EnumMap<>(Coin.class);
+        for (Coin coin : Coin.values()) {
+            safeStates.put(coin, new SafeCoinState(coin));
+        }
+        // Apply a delta to BTC
+        safeStates.get(Coin.BTC).applyDelta(120L);
 
-        // WHEN: Worker'ların işlediği güvenli (Safe) coin son durumları
-        List<Snapshot> safeCoins = List.of(
-                new Snapshot(Coin.BTC, 60120L, 120L, 5L, "worker-1"),
-                new Snapshot(Coin.ETH, 2975L, -25L, 2L, "worker-2")
-        );
+        // GIVEN: Expected results matching the applied deltas
+        Map<Coin, ExpectedCoinCalculatedResult> expected = new EnumMap<>(Coin.class);
+        expected.put(Coin.BTC, new ExpectedCoinCalculatedResult(
+                Coin.BTC.getInitialPrice() + 120L, 1));
+        expected.put(Coin.ETH, new ExpectedCoinCalculatedResult(
+                Coin.ETH.getInitialPrice(), 0));
+        expected.put(Coin.SOL, new ExpectedCoinCalculatedResult(
+                Coin.SOL.getInitialPrice(), 0));
 
-        // THEN: Invariant kontrolü başarılı (true) dönmelidir
-        boolean isPassed = checker.checkPriceInvariant(safeCoins, expectedPrices);
-        Assertions.assertTrue(isPassed, "Güvenli coin fiyatları beklenen sonuçla birebir eşleşmelidir!");
-    }
-
-    @Test
-    void whenProcessedCountMatchesSubmitted_thenCountInvariantShouldPass() { // <-- "public" yok!
-        long submitted = 10000L;
-        long processed = 10000L;
-
-        Assertions.assertTrue(checker.checkCountInvariant(processed, submitted));
+        // THEN: Invariant check should pass
+        Assertions.assertTrue(InvariantChecker.verifyPrices(safeStates, expected),
+                "Safe coin prices must match expected results");
     }
 }
