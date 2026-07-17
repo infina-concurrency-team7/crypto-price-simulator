@@ -129,17 +129,6 @@ Grup çalışması kapsamında eşzamanlı veri aktarımını sağlamak için Ja
 | **Sonucun Paylaşılması** | DTO (`CoinStatResponse`) | İçerideki mutable state doğrudan dışarı açılmadı. Simülasyon biter bitmez içerik güvenli veriler olan DTO listelerine (`CoinStatResponse` & `SafeCoinResponse`) dönüştürülerek Controller'a thread-safe sunuldu. |
 | **İkinci Simülasyon İsteği** | `AtomicBoolean` (`compareAndSet`) | Aynı anda atılan 2. isteğin state'leri bozmasını engellemek (HTTP 409 dönmek) için CAS (Compare-And-Swap) mantığı kullanıldı. İşlem bittiğinde `finally` bloğunda bayrak serbest bırakıldı. |
 
-## Grup Üyeleri ve Katkıları
-
-| Üye | Sorumluluk | Branch | Pull Request | Review |
-| --- | --- | --- | --- | --- |
-| **Miray Tepe** | Task Queue & Producer | `feature/issue-1-price-update-task`, `feature/conflict-demo-b` | PR #20 | Ali Rıza Kayğusuz |
-| **Mehmet Çavdar** | Worker Pool & Engine & Latch | `feature/worker-pool` , `feature/conflict-demo-a` | PR #19 / #22 / #53 / #54 | Ali Rıza Kayğusuz|
-| **Ali Rıza Kayğusuz** | Simulation Service & Race | `feature/model-layer`, `feature/simulation-service`, `feature/metrics`, `feature/api-layer`, `feature/api-versioning`, `feature/latch-await`, `fix/integration-test-urls`, `fix/application-properties-encoding`, `refactor/simulation-service-cleanup`  | PR #51 / #55 / #56 / #58 / #59 / #60 / #61 | Miray Tepe |
-| **Ece Nisa Uğur** | API (v1), Validation & Swagger | `feature/api-layer` , `feature/api-versioning` | PR #21 / #52 | Miray Tepe |
-| **Zehra Buse Tüfekçi** | Metrics, Benchmark & Tests | `feature/metrics`, `docs/performance` | PR #41 | Ömer Onur Çamlı |
-| **Ömer Onur Çamlı** | DTO, InvariantChecker & Docs | `feature/dto-docs`, `docs/update-architecture-and-diagrams` | PR #33 | Zehra Buse Tüfekçi / Ece Nisa Uğur / Mehmet Çavdar |
-
 ## Race Condition Gözlemi
 
 Bu simülatörde iki race condition noktası bulunur:
@@ -301,9 +290,28 @@ Araç: Çözüm için IntelliJ IDEA'nın Merge Tool aracı kullanıldı
 
 ## Testler
 
+Toplam **7 test sınıfı**, **30 test metodu**. Çalıştırmak için: `mvn test`
+
+| Test Sınıfı | Test Sayısı | Kapsam |
+|---|---:|---|
+| `SimulationServiceTest` | 10 | Happy path, deterministic seed, worker varyasyonları, AtomicBoolean guard, edge case |
+| `TaskProducerTest` | 8 | Görev üretimi, seed tekrarlanabilirliği, sınır değerler |
+| `WorkerPoolTest` | 7 | Görev işleme, thread isimlendirme, graceful shutdown, hata durumları |
+| `SimulationControllerIntegrationTest` | 2 | Uçtan uca simülasyon akışı, validation (HTTP 400) |
+| `CoinStateInvariantTest` | 1 | Safe fiyat invariant doğrulaması |
+| `SafeCounterStressTest` | 1 | AtomicLong thread-safety stres testi |
+| `CryptoPriceSimulatorApplicationTests` | 1 | Spring Boot context yükleme |
 
 ## Grup Üyeleri ve Katkıları
 
+| Üye | Sorumluluk | Branch | Pull Request | Review |
+| --- | --- | --- | --- | --- |
+| **Miray Tepe** | Task Queue & Producer | `feature/issue-1-price-update-task`, `feature/conflict-demo-b` | PR #20 | Ali Rıza Kayğusuz |
+| **Mehmet Çavdar** | Worker Pool & Engine & Latch | `feature/worker-pool` , `feature/conflict-demo-a` | PR #19 / #22 / #53 / #54 | Ali Rıza Kayğusuz|
+| **Ali Rıza Kayğusuz** | Simulation Service & Race | `feature/model-layer`, `feature/simulation-service`, `feature/metrics`, `feature/api-layer`, `feature/api-versioning`, `feature/latch-await`, `fix/integration-test-urls`, `fix/application-properties-encoding`, `refactor/simulation-service-cleanup`  | PR #51 / #55 / #56 / #58 / #59 / #60 / #61 | Miray Tepe |
+| **Ece Nisa Uğur** | API (v1), Validation & Swagger | `feature/api-layer` , `feature/api-versioning` | PR #21 / #52 | Miray Tepe |
+| **Zehra Buse Tüfekçi** | Metrics, Benchmark & Tests | `feature/metrics`, `docs/performance` | PR #41 | Ömer Onur Çamlı |
+| **Ömer Onur Çamlı** | DTO, InvariantChecker & Docs | `feature/dto-docs`, `docs/update-architecture-and-diagrams` | PR #33 | Zehra Buse Tüfekçi / Ece Nisa Uğur / Mehmet Çavdar |
 
 ## Bonus Çalışmalar
 * Bu projede ek bonus madde (Virtual Threads veya Deadlock Simülasyonu) implemente edilmemiştir.
