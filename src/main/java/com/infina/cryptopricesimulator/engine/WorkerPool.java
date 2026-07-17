@@ -157,7 +157,7 @@ public final class WorkerPool<T> {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(timeoutSeconds, TimeUnit.SECONDS)) {
-                log.warn("Workers did not finish within {}s; forcing shutdownNow()", timeoutSeconds);
+                log.warn("Workers still running after {}s timeout; forcing shutdownNow()", timeoutSeconds);
                 executor.shutdownNow();
                 return false;
             }
