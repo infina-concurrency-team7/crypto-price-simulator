@@ -1,4 +1,22 @@
-# 1. Mimari Akış ve Kuyruk Seçimi Tasarım Kararları
+# Eşzamanlı Kripto Fiyat Simülatörü
+
+
+## Proje Hakkında
+
+
+## Kullanılan Teknolojiler
+
+
+## Uygulamayı Çalıştırma
+
+
+## Swagger Adresi
+
+
+## Endpoint'ler
+
+
+##  Mimari Akış ve Kuyruk Seçimi Tasarım Kararları
 
 Bu projede, üretilen yoğun fiyat güncelleme görevlerini sınırlı sistem kaynaklarıyla (CPU/Thread) ezmeden, güvenli ve performanslı bir şekilde işleyebilmek amacıyla **Producer-Consumer (Üretici-Tüketici)** tasarım deseni tercih edilmiştir.
 
@@ -6,7 +24,7 @@ Aşağıda sistemin çalışma mimarisi, veri akışı ve bu akışta kullanıla
 
 ---
 
-## 1.1. Mimari Akış Şeması
+##  Mimari Akış Şeması
 
 Sistemimiz üç temel katmandan oluşmaktadır: **Üretim (Producer)**, **Ara Bellek / Tampon (Kuyruk)** ve **Tüketim (Consumer/Worker)**.
 
@@ -22,7 +40,7 @@ Sistemimiz üç temel katmandan oluşmaktadır: **Üretim (Producer)**, **Ara Be
 
 ---
 
-## 1.2. Kuyruk (Queue) Seçimi Karar Analizi
+##  Kuyruk (Queue) Seçimi Karar Analizi
 
 Grup çalışması kapsamında eşzamanlı veri aktarımını sağlamak için Java'nın `java.util.concurrent` paketindeki yapılar incelenmiş ve **`LinkedBlockingQueue`** üzerinde karar kılınmıştır. Karar alma sürecinde değerlendirilen alternatifler ve teknik gerekçeler şu şekildedir:
 
@@ -45,7 +63,110 @@ Grup çalışması kapsamında eşzamanlı veri aktarımını sağlamak için Ja
 
 ---
 
-## 1.3. Tasarımın İnvariant (Doğruluk) Temeli
+##  Tasarımın İnvariant (Doğruluk) Temeli
 
 * **Determinizm:** `ExpectedResultCalculator` sınıfı, simülasyon başlamadan önce statik üretilen immutable listeyi tek bir thread üzerinde sırayla işleyerek kayıpsız ve kesin sonuçları (beklenen son fiyat ve güncelleme sayıları) hesaplar.
 * **Doğrulama:** Simülasyon bittiğinde, çoklu thread ortamında güncellenen nihai coin durumları ile bu referans hesaplama karşılaştırılarak veri kaybı (data loss) veya yarış durumu (race condition) sapmaları matematiksel olarak ispatlanır.
+
+## ⭐ Tasarım Kararları
+
+
+## Race Condition Gözlemi
+
+## Güvenli Çözüm
+
+## Invariant ve Doğruluk Kanıtı
+
+
+## Performans Sonuçları
+
+| Updates | Workers | Süre (ms) | Throughput (ops/s) | Invariant |
+|---:|---:|---:|---:|---|
+| 50.000 | 1 | 84 | 595.238 | Başarılı |
+| 50.000 | 2 | 138 | 362.318 | Başarılı |
+| 50.000 | 4 | 142 | 352.112 | Başarılı |
+| 50.000 | 8 | 189 | 264.550 | Başarılı |
+
+**Yorum:**
+
+- Worker sayısı arttıkça performans beklenenin aksine iyileşmemiş, belirli bir noktadan sonra düşmüştür.
+- Bu senaryoda tüm worker'lar aynı `ReentrantLock` üzerinden senkronizasyon sağladığı için **lock contention** oluşmuş ve thread'ler kilidi almak için beklemek zorunda kalmıştır.
+- Worker sayısının artması **context switching** maliyetini de artırmış ve ek performans yükü oluşturmuştur.
+- Her görevin yalnızca tek bir `applyDelta()` işlemi içermesi nedeniyle, lock alma ve bırakma maliyeti yapılan işten daha baskın hale gelmiştir.
+- Sonuç olarak, bu deney daha fazla thread kullanmanın her zaman daha yüksek performans sağlamadığını göstermektedir.
+- Özellikle ince taneli kilitleme (fine-grained locking) ve küçük iş birimlerinde ek thread'ler performansı artırmak yerine düşürebilir.
+
+
+## ReentrantLock ve synchronized Karşılaştırması
+
+Java'da paylaşılan mutable state üzerinde thread güvenliği sağlamak için
+`synchronized` veya `ReentrantLock` kullanılabilir.
+
+### synchronized
+
+`synchronized`, JVM tarafından sağlanan dahili bir kilitleme mekanizmasıdır.
+Bir metoda veya kod bloğuna aynı anda yalnızca bir thread'in erişmesine izin verir.
+
+Avantajları:
+- Kullanımı kolaydır.
+- Lock yönetimi JVM tarafından otomatik gerçekleştirilir.
+
+Dezavantajları:
+- Lock yönetimi üzerinde daha az kontrol sağlar.
+- `tryLock()` veya fair locking gibi gelişmiş özellikleri desteklemez.
+
+
+### ReentrantLock
+
+`ReentrantLock`, Java Concurrency API içerisinde bulunan daha gelişmiş bir
+kilitleme mekanizmasıdır.
+
+Avantajları:
+- Manuel lock kontrolü sağlar.
+- `tryLock()` ile lock alınabilirliği beklemeden kontrol edilebilir.
+- Fair locking gibi ek özellikler sunar.
+- Daha esnek concurrency yönetimi sağlar.
+
+Dezavantajları:
+- `lock()` ve `unlock()` yönetimi geliştirici sorumluluğundadır.
+- `unlock()` unutulması durumunda kilitlenme problemleri oluşabilir.
+
+
+## Project Usage
+
+Bu projede `CoinState` üzerinde birden fazla worker thread tarafından yapılan
+fiyat güncellemelerinde thread güvenliği sağlamak amacıyla `ReentrantLock`
+kullanılmıştır.
+
+`SafeCoinState` sınıfında:
+
+- `applyDelta()` metodu
+- `snapshot()` metodu
+
+lock ile korunmaktadır.
+
+Böylece aynı coin state üzerinde eşzamanlı güncellemeler sırasında oluşabilecek
+race condition problemleri engellenir.
+
+Bu projede `synchronized` yerine `ReentrantLock` tercih edilmiştir çünkü lock
+yönetimi üzerinde daha fazla kontrol sağlamak hedeflenmiştir.
+
+Sayaç işlemlerinde ise farklı bir thread-safe yaklaşım olarak `AtomicLong`
+kullanılmıştır. `SafeCounter` sınıfında atomic operasyonlar sayesinde ek bir
+lock mekanizmasına ihtiyaç duyulmadan güvenli sayaç yönetimi sağlanmıştır.
+
+## Thread Dump İncelemesi
+
+
+
+## Merge Conflict Deneyimi
+
+
+
+## Testler
+
+
+## Grup Üyeleri ve Katkıları
+
+
+## Bonus Çalışmalar

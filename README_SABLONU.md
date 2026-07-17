@@ -94,14 +94,21 @@ safeUpdateCount == o coin için üretilen görev sayısı ->  <geçti/geçmedi>
 
 ## Performans Sonuçları
 
-| Updates | Workers | Süre | Throughput | Invariant |
+| Updates | Workers | Süre (ms) | Throughput (ops/s) | Invariant |
 |---:|---:|---:|---:|---|
-| 50.000 | 1 | <...> | <...> | Başarılı |
-| 50.000 | 2 | <...> | <...> | Başarılı |
-| 50.000 | 4 | <...> | <...> | Başarılı |
-| 50.000 | 8 | <...> | <...> | Başarılı |
+| 50.000 | 1 | 84 | 595.238 | Başarılı |
+| 50.000 | 2 | 138 | 362.318 | Başarılı |
+| 50.000 | 4 | 142 | 352.112 | Başarılı |
+| 50.000 | 8 | 189 | 264.550 | Başarılı |
 
-<Yorum: worker artınca ne oldu? Bir noktadan sonra neden hızlanmadı (lock contention / context switch)?>
+**Yorum:**
+
+- Worker sayısı arttıkça performans beklenenin aksine iyileşmemiş, belirli bir noktadan sonra düşmüştür.
+- Bu senaryoda tüm worker'lar aynı `ReentrantLock` üzerinden senkronizasyon sağladığı için **lock contention** oluşmuş ve thread'ler kilidi almak için beklemek zorunda kalmıştır.
+- Worker sayısının artması **context switching** maliyetini de artırmış ve ek performans yükü oluşturmuştur.
+- Her görevin yalnızca tek bir `applyDelta()` işlemi içermesi nedeniyle, lock alma ve bırakma maliyeti yapılan işten daha baskın hale gelmiştir.
+- Sonuç olarak, bu deney daha fazla thread kullanmanın her zaman daha yüksek performans sağlamadığını göstermektedir.
+- Özellikle ince taneli kilitleme (fine-grained locking) ve küçük iş birimlerinde ek thread'ler performansı artırmak yerine düşürebilir.
 
 ## ReentrantLock ve synchronized Karşılaştırması
 
