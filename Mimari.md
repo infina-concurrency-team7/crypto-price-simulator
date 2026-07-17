@@ -1,20 +1,18 @@
-# Eşzamanlı Kripto Fiyat Simülatörü - Mimari Dokümanı
+# Eşzamanlı Kripto Fiyat Simülatörü - Güncel Mimari Dokümanı
 
 ## 1. Proje Hakkında
 
 Bu proje, Java 17 ve Spring Boot kullanılarak geliştirilmiş eşzamanlı bir kripto fiyat simülasyon uygulamasıdır.  
-Sistem, üretilen fiyat güncelleme görevlerini bir `BlockingQueue` üzerinde toplar ve sabit sayıdaki worker thread tarafından işler.
+Sistem, üretilen fiyat güncelleme görevlerini bir `ArrayBlockingQueue` üzerinde toplar ve sabit sayıdaki worker thread tarafından işler.
 
-Uygulamanın amacı, çoklu thread ortamında oluşabilecek **race condition** problemlerini göstermek ve thread-safe veri yönetimi ile güvenli çözüm sağlamaktır.
+Uygulamanın amacı, çoklu thread ortamında oluşabilecek **race condition** problemlerini göstermek ve thread-safe veri yönetimi (Fine-Grained lock, Atomic yapıları) ile güvenli çözüm sağlamaktır.
 
 ---
 
 # 2. Genel Mimari Akış
 
-
-```
-
-Controller
+```text
+Controller (SimulationController)
 │
 ▼
 SimulationService
@@ -22,230 +20,151 @@ SimulationService
 ├──► ExpectedResultCalculator (Referans Sonuçlar)
 │
 ▼
-TaskProducer ────── WorkerService
-│                   │
-│            ───────
-▼           ▼
-BlockingQueue
+queue.TaskProducer ───────── engine.WorkerPool (CountDownLatch ile Bekler)
+│                             │
+▼                             ▼
+ArrayBlockingQueue            engine.PriceWorker (Worker Threads)
+│                             │
+▼                             ▼
+Worker Threads (Tüketim)      state.CoinState & counter.Counter (Durum Güncellemeleri)
 │
 ▼
-Worker Threads
-│
-▼
-CoinStateManager
-│
-▼
-CoinState
-│
-▼
-InvariantChecker (Doğruluk Kontrolü)
-
+SimulationService (Sonuç Birleştirme & Doğrulama)
 ```
 
 ## Akış Açıklaması
 
-1. Kullanıcı `/simulate` endpoint'i üzerinden simülasyonu başlatır.
+1. Kullanıcı `/api/v1/simulate` endpoint'i üzerinden simülasyonu başlatır.
 2. `SimulationController`, isteği `SimulationService` katmanına iletir.
-3. `SimulationService` queue, worker pool oluşturur ve `ExpectedResultCalculator` ile beklenen matematiksel referans (golden source) sonuçları hesaplar.
+3. `SimulationService` kuyruk (ArrayBlockingQueue) ve worker pool oluşturur, `ExpectedResultCalculator` ile beklenen matematiksel referans (golden source) sonuçları hesaplar.
 4. `TaskProducer`, fiyat güncelleme görevlerini üretir.
-5. Üretilen görevler `BlockingQueue` içerisine eklenir.
-6. Worker thread'leri kuyruktan görevleri alarak işler.
-7. `CoinStateManager`, coin durumlarının güvenli (safe) ve güvensiz (unsafe) güncellenmesini sağlar.
-8. `InvariantChecker`, simülasyon sonunda veri tutarlılığını ve thread-safe kuralların bozulup bozulmadığını kontrol eder.
-9. Sonuçlar (`SimulationResultResponse`) kullanıcıya döndürülür.
+5. Üretilen görevler `ArrayBlockingQueue` içerisine eklenir.
+6. `PriceWorker` thread'leri kuyruktan görevleri alarak işler.
+7. Görevler hem güvenli (`SafeCoinState`) hem de güvensiz (`UnSafeCoinState`) statelere enjekte edilir. Aynı zamanda worker üzerinden update sayacının artması (SafeCounter/UnsafeCounter) tetiklenir.
+8. `SimulationService` simülasyonun bittiğini `CountDownLatch` ile bekler, süre hesaplamasını yapar ve veri tutarlılığını/kuralların bozulup bozulmadığını kontrol eder.
+9. Sonuçlar dışa güvenli bir şekilde `SimulationResultResponse` DTO'su (içinde detaylı `CoinStatResponse` listesi ile) döndürülür. İstenildiği an `/api/v1/stats` ve `/api/v1/coins` den geriye dönük veriler de okunabilir.
 
 ---
 
 # 3. Paket Yapısı
 
-
-```
-
+```text
 src/main/java/com/infina/cryptopricesimulator
 
-├── controller
-│     └── SimulationController
+├── api
+│     ├── controller (SimulationController)
+│     │      └── docs (SimulationApi Swagger Interface)
+│     ├── dto (ErrorResponse)
+│     ├── exception (Özel exception sınıfları)
+│     └── GlobalExceptionHandler
+│
+├── config
+│     └── OpenApiConfig
 │
 ├── service
-│     ├── SimulationService
-│     └── WorkerService
+│     └── SimulationService
+│
+├── engine
+│     ├── PriceWorker
+│     ├── TaskProcessor
+│     └── WorkerPool
 │
 ├── queue
-│     ├── TaskProducer
-│     └── PriceUpdateTask
-│
-├── worker
-│     └── Worker
+│     ├── ExpectedCoinCalculatedResult
+│     ├── ExpectedResultCalculator
+│     ├── PriceUpdateTask
+│     └── TaskProducer
 │
 ├── state
 │     ├── CoinState
 │     ├── SafeCoinState
-│     ├── UnsafeCoinState
-│     └── CoinStateManager
+│     └── UnSafeCoinState
+│
+├── counter
+│     ├── Counter
+│     ├── SafeCounter
+│     └── UnsafeCounter
 │
 ├── metrics
-│     ├── ExpectedResultCalculator
 │     └── InvariantChecker
 │
-├── model (DTO & Enums)
-│     ├── CoinEnum
-│     ├── SimulationResultResponse
-│     └── CoinStatResponse
+├── model
+│     ├── Coin (Enum)
+│     └── Snapshot
 │
-├── config
-│     └── SwaggerConfig
-│
-├── exception
-│     └── GlobalExceptionHandler
+├── dto
+│     ├── CoinStatResponse
+│     ├── SafeCoinResponse
+│     └── SimulationResultResponse
 │
 └── CryptoPriceSimulatorApplication
-
 ```
 
 ---
 
-controller
-- REST API endpoint'lerini içerir.
-- Kullanıcıdan gelen simülasyon başlatma, coin durumu ve istatistik isteklerini yönetir.
-- İş mantığını doğrudan yapmaz, service katmanına yönlendirir.
+## Tüm Paket ve Sınıfların Veri-Akış Açıklamaları
 
-service
-- Uygulamanın ana iş mantığının bulunduğu katmandır.
-- SimulationService simülasyon sürecini yönetir; queue, producer, worker ve doğrulama akışını koordine eder.
-- WorkerService thread pool oluşturma, worker başlatma ve sonlandırma işlemlerinden sorumludur.
+### `api`
+- REST endpoint'leri ve gelen HTTP isteklerinde oluşabilecek olan hataları yönetir.
+- **controller:** İş mantığını doğrudan yapmaz, controller katmanı (SimulationController) olarak servise bağlar.
+- **docs:** API dokümantasyonu için oluşturulan swagger (SimulationApi) arayüzlerini içerir.
+- İçerisinde özel durum/kural hataları (`SimulationAlreadyRunningException` vb.), hata formatını veren bir `ErrorResponse` ve hataları global seviyede sarmalayan `GlobalExceptionHandler` yer alır.
 
-queue
-- Worker thread'leri ile producer arasındaki görev iletişimini sağlar.
-- PriceUpdateTask güncellenecek coin, fiyat değişim bilgisi ve sıra numarasını taşır.
-- TaskProducer belirlenen sayı ve seed değerine göre görevleri üretip kuyruğa ekler.
+### `config`
+- **OpenApiConfig:** Swagger/OpenAPI gibi standart API arayüz konfigürasyonlarını devreye alır.
 
-worker
-- Queue içerisindeki görevleri tüketen thread yapısını içerir.
-- Her worker aldığı PriceUpdateTask'i işler ve ilgili coin state güncellemesini gerçekleştirir.
+### `service`
+- Uygulamanın ana iş mantığının ve koreografinin yürütüldüğü katmandır.
+- **SimulationService:** Simülasyon sürecinin tek komuta merkezidir. Task üretimi öncesi seed ile görev inşasını sağlar, engine üzerindeki worker havuzunu başlatır, görevlerin bir ArrayBlockingQueue ile atılmasını tetikler, `CountDownLatch` ile işin bitmesini isabetli ölçecek şekilde bekler ve Invariant kontrollerinden geçirip nihai DTO yanıtını oluşturur. Ayrıca `/coins` ve `/stats` endpoint'lerine son duruma dair veriler (state) tutar.
 
-state
-- Coin'lerin güncel durumlarını ve thread-safe güncelleme mekanizmasını yönetir.
-- CoinState fiyat, update sayısı ve son güncelleme bilgilerini tutan soyut yapıdır.
-- SafeCoinState (Lock kullanan) ve UnsafeCoinState yarış durumu (race condition) farklarını ortaya koyar.
+### `engine`
+- Worker thread'leri ile producer arasındaki eşzamanlı motor yapısını idare eder.
+- **WorkerPool:** Thread havuzunu yaratır (`Executors.newFixedThreadPool`). Bünyesinde bulunan `CountDownLatch` ile beklemeleri yapar ve işlerin tamamlanmasından itibaren executor timeout operasyonlarını ayarlar (graceful shutdown).
+- **PriceWorker:** Queue üzerinden görevleri alan tüketici thread yapısıdır (`Runnable`). Görevleri alıp `TaskProcessor` adlı fonksiyonel arayüz vasıtasıyla işlenmesini tetikler ve sonunda Latch'i azaltır.
 
-metrics
-- Simülasyon sonuçlarının doğruluğunu kontrol eden ve metrikleri hesaplayan katmandır.
-- ExpectedResultCalculator matematiksel olarak beklenen kesin sonuçları (golden source) hesaplar.
-- InvariantChecker thread-safe ve thread-unsafe durumların tutarlılığını doğrular.
+### `queue`
+- Mimaride görev bloklarının oluşumu, kuyruk iletilme süreci ve görevlerle alakalı referans veri üretimini sağlar.
+- **PriceUpdateTask:** `record` nesnesi olup, güncellenecek coin ID'si, fiyat değişim (delta) bilgisi ve sıra numarasını immutable taşır.
+- **TaskProducer:** Statik liste üretimini (createStaticTasks) yapıp, kendi `run` metodunda bunu Producer mantığı ile BlockingQueue'ya enjekte eder.
+- **ExpectedResultCalculator / Result Models:** Fiyat güncellemelerinin hiçbir yarış durumu olmadan arka arkaya serice yapıldığında, varması gereken "tek ve şaşmaz" matematiksel beklenti verilerini simüle eder (Golden Source).
 
-model
-- Uygulama içerisinde kullanılan veri modellerini, enum'ları ve DTO (Data Transfer Object) yapılarını içerir.
-- CoinEnum, ana cevap modeli olan SimulationResultResponse ve alt coin detaylarını tutan CoinStatResponse burada yer alır.
+### `state`
+- Sistemdeki her coinin, worker'lar tarafından üzerine yazılacak olan hafızadaki güncel durumlarını yönetir.
+- **CoinState:** Fiyat, update sayısı ve son delta güncellemesini tutan soyut temel sınıftır.
+- **SafeCoinState:** İçerisinde `ReentrantLock` barındıran ve "Fine-Grained" mantıkla race-condition'ı önleyip Thread-Safe modifikasyonu sağlar.
+- **UnSafeCoinState:** Kayıp update (lost update) senaryosunu oluşturup sergilemek adına yarış durumuna (race condition) kasıtlı açık bırakılmıştır.
 
-config
-- Uygulama konfigürasyonlarını içerir.
-- Swagger/OpenAPI gibi uygulama ayarları burada tanımlanır.
+### `counter`
+- Toplam operasyonun güncelleme döngü sayılarını tutan işlem sayaçları katmanıdır.
+- **SafeCounter:** `AtomicLong.incrementAndGet` ile yarış durumu önlenmiş paralel sayıcı.
+- **UnsafeCounter:** Saf logik `count++` işlemi kullanan kilitlenmemiş bozuk sayaç simülatörü.
 
-exception
-- Uygulama genelindeki hata yönetimini içerir.
-- Validation hataları ve özel exception durumları merkezi olarak yönetilir.
+### `metrics`
+- İstendiği zaman simülasyon sonu tespit yapılması için elzem yapıları barındırır.
+- **InvariantChecker:** Safe veri havuzundan alınan verileri (güncel limit) ve `ExpectedResultCalculator`'dan gelen verileri yan yana koyup, hiçbir fiyat şaşması var mı veya update eksiği var mı diye kıyaslamasını test eden yardımcı algoritmadır. (Metodu `SimulationService` içindeki Invariant doğrulamasında iş bitiminde kullanılır veya legacy mantığı için aracıdır).
 
-CryptoPriceSimulatorApplication
-- Spring Boot uygulamasının başlangıç sınıfıdır.
-- Uygulamayı ayağa kaldıran main metodunu içerir.
+### `model`
+- Mimarideki model ve enum dosyalarını içerir.
+- **Coin:** Simüle edilen (BTC, ETH, vb.) destekli varlıkların başlangıç değerleri.
+- **Snapshot:** Modifiye edilebilen bir state objesinin belli andaki "fotoğrafını", Immutable bir Record nesnesi ile alıp dışarıdaki nesneden verisinin tutarlı okunması amacıyla oluşturulmuştur.
+
+### `dto`
+- Dış dünyaya yani HTTP / JSON response akışlarına çıkartılacak olan nesnelerin yer aldığı Data-Transfer-Object klasörüdür.
+- **SimulationResultResponse:** Gecikmeler, seed, update sayıları ve Throughput bilgileriyle dolu `/simulate` ve `/stats` uçlarından dönülen ana gövdedir.
+- **CoinStatResponse:** O simülasyondaki (BTC, ETH) birimler bazında Beklenen vs. Safe vs. Unsafe bilgisini taşır.
+- **SafeCoinResponse:** `/coins` endpoint'i üzerinden doğrudan "Sadece safe/güvenli" son paraların duruk hallerini dönen sarmaldır.
+
+### `CryptoPriceSimulatorApplication`
+- Spring Boot uygulamamızın başlatıcısıdır. Container'ını ve context yüklemesini idare eder.
 
 ---
 
-## Sınıf Açıklamaları
-
-### controller
-
-**SimulationController**
-- REST API isteklerini karşılayan controller sınıfıdır.
-- Kullanıcının simülasyon başlatma (`/simulate`), coin durumlarını görüntüleme (`/coins`) ve istatistik alma (`/stats`) isteklerini yönetir.
-- İş mantığını içermez, ilgili işlemler için service katmanını çağırır.
-
-### service
-
-**SimulationService**
-- Simülasyon sürecinin ana yönetici sınıfıdır.
-- Task üretimi, worker başlatılması, görevlerin tamamlanmasının beklenmesi ve sonuçların oluşturulması işlemlerini koordine eder.
-- BlockingQueue, ExecutorService ve CountDownLatch gibi concurrency yapılarını yönetir.
-
-**WorkerService**
-- Worker thread'lerinin yaşam döngüsünü yönetir.
-- Belirlenen worker sayısına göre thread pool oluşturur, worker'ları başlatır ve güvenli şekilde sonlandırır.
-
-### queue
-
-**PriceUpdateTask**
-- Kuyruk içerisinde taşınan görev nesnesidir (`record`).
-- Her görev sıra numarası (`sequence`), coin ID (`coinId`) ve fiyat değişimi (`delta`) bilgisini taşır.
-- Producer tarafından oluşturulur, Worker tarafından tüketilir.
-
-Örnek:
-`sequence: 1, coinId: "BTC", delta: +5`
-
-**TaskProducer**
-- Simülasyon için fiyat güncelleme görevlerini üretir.
-- Belirlenen update sayısı ve seed değeri ile tekrar üretilebilir rastgele görevler oluşturur.
-- Oluşturduğu görevleri BlockingQueue içerisine ekler.
-
-### worker
-
-**Worker**
-- Queue üzerinden görev alan çalışan thread yapısıdır (`Runnable`).
-- Aldığı PriceUpdateTask'i işler ve hem safe hem de unsafe coin state güncellemelerini gerçekleştirir.
-- Birden fazla worker aynı anda çalışarak eşzamanlı işlem yapılmasını sağlar.
-
-### state
-
-**CoinState & Alt Sınıfları**
-- **CoinState:** Tek bir coin'in anlık durumunu temsil eden soyut/temel yapıdır. Fiyat, güncelleme sayısı, son değişim ve güncelleyen thread bilgilerini tutar.
-- **SafeCoinState:** `ReentrantLock` kullanarak thread-safe (race condition olmadan) fiyat güncellemesi yapan sınıftır.
-- **UnsafeCoinState:** Herhangi bir senkronizasyon mekanizması kullanmayan, yarış durumuna (race condition) açık sınıftır.
-- **CoinStateManager:** Tüm coin state nesnelerini yönetir ve merkezi güncelleme noktası sunar.
-
-### metrics
-
-**ExpectedResultCalculator**
-- Fiyat güncellemelerinin hiçbir race condition (yarış durumu) olmadan, tek thread çalışıyormuş gibi matematiksel olarak ulaşması gereken "beklenen" (`expected`) nihai sonuçları hesaplar.
-- Simülasyon bitiminde, safe ve unsafe worker'ların ürettiği sonuçların doğruluğunu kıyaslamak için referans (golden source) oluşturur.
-
-**InvariantChecker**
-- Simülasyon kurallarının (invariant) bozulup bozulmadığını kontrol eder.
-- `checkPriceInvariant`: Safe coin durumlarının, beklenen referans sonuçlarla birebir uyuşup uyuşmadığını doğrular (`safeInvariantPassed`).
-- `checkCountInvariant`: İşlenen toplam güvenli ve güvensiz güncelleme sayılarının, gönderilen toplam görev sayısına eşit olup olmadığını kontrol eder.
-
-### model (DTO & Enums)
-
-**CoinEnum**
-- Sistemde desteklenen kripto para türlerini ve başlangıç fiyatlarını temsil eden enum sınıfıdır.
-
-Örnek Değerler:
-- `BTC` (Başlangıç Fiyatı: 60.000)
-- `ETH` (Başlangıç Fiyatı: 3.000)
-- `SOL` (Başlangıç Fiyatı: 150)
-
-**SimulationResultResponse**
-- `/simulate` ve `/stats` endpoint'lerinden dönen ana DTO cevap modelidir.
-- Simülasyon seed değeri, toplam işlenen update sayıları (submitted, safe, unsafe), geçen süreler (elapsedMs), saniye başına throughput değerleri, `safeInvariantPassed` doğruluk bayrağı ve her bir coin için detaylı sonuçları içeren `CoinStatResponse` listesini tutar.
-
-**CoinStatResponse**
-- Tek bir coin için simülasyon sonu detaylı istatistiklerini taşıyan DTO modelidir.
-- Coin ID'si, başlangıç fiyatı (`initial`), beklenen fiyat (`expected`), güvenli/güvensiz nihai fiyatlar (`safe` / `unsafe`) ve bunların ilgili güncelleme sayılarını (`update count`) içerir.
-
-### config
-
-**SwaggerConfig**
-- Swagger/OpenAPI dokümantasyon ayarlarını içerir.
-- API endpoint'lerinin kullanıcı tarafından arayüz üzerinden test edilmesini sağlar.
-
-### exception
-
-**GlobalExceptionHandler**
-- Uygulamadaki hataları merkezi olarak yönetir.
-- Validation hataları, geçersiz parametreler ve özel exception durumları için uygun HTTP cevapları döner.
-
-### CryptoPriceSimulatorApplication
-
-**CryptoPriceSimulatorApplication**
-- Spring Boot uygulamasının başlangıç noktasıdır.
-- Main metodu içerisinde Spring konteynerini başlatır ve uygulamayı ayağa kaldırır.
-
-```
+## Tasarım Kararlarında Güncel Değişimler
+| Karar Noktası | Kararımız | Neden? (+ Alternatif Karşılaştırması) |
+|---|---|---|
+| **Görev Kuyruğu** | `ArrayBlockingQueue(1000)` | Bellek yığılmasını önlemek (OOM engellemek) için sınırlı-Bounded kuyruk seçildi. |
+| **Worker Havuzu** | `Executors.newFixedThreadPool(workers)` | Her görev için thread kurma context-switch yükü yaratır; thread havuzu ile reuse edildi. |
+| **Coin Kilidi & Kapsamı** | `ReentrantLock` & Fine-Grained | Bütün coin'leri bir kilide sokmak (Global) yerine her coine kendi özel lock'u verilerek darboğaz engellendi. |
+| **İşlerin Tamamlanması (Performans Senkronizasyonu)** | Poison Pill (-1) + `CountDownLatch.await()` | Worker'ların döngü kapanışını bildirmesi Poison Pill ile, süre (elapsedMs) kesiminin kusursuz ölçülebilmesi ise `CountDownLatch`'in son worker'da sıfırlanması ile sağlandı. |
+| **Graceful Shutdown** | `awaitCompletion()` -> `shutdown()` | İşlem süreleri sayıldıktan sonra Executor üzerinde son temizlik (kilit beklemeleri vs.) kapatma metoduyla güvenceye alındı. |
+| **İkinci Simülasyon Koruması** | `AtomicBoolean` (`compareAndSet`) | Çalışırken üzerine 2. tetiklemenin getireceği state kirliliğini Thread-Safe olarak engellemek (HTTP 409) için CAS (Compare-And-Swap) kullanıldı. |
