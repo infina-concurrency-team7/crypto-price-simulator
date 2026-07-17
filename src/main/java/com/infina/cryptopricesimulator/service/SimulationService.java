@@ -155,9 +155,19 @@ public class SimulationService {
         }
 
         pool.signalNoMoreTasks();
-        pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS);
+
+        try {
+            pool.getLatch().await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while waiting for workers");
+        }
 
         long elapsedMs = (System.nanoTime() - startNanos) / NANOS_PER_MILLI;
+
+        // Executor cleanup — workers already finished (latch guarantees), just release resources
+        pool.awaitCompletion(SHUTDOWN_TIMEOUT_SECONDS);
+
         log.info("Simulation completed in {}ms ({} tasks, {} workers)",
                 elapsedMs, tasks.size(), workers);
 
