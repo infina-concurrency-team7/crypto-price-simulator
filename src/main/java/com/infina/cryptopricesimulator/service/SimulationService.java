@@ -9,6 +9,7 @@ import com.infina.cryptopricesimulator.dto.CoinStatResponse;
 import com.infina.cryptopricesimulator.dto.SafeCoinResponse;
 import com.infina.cryptopricesimulator.dto.SimulationResultResponse;
 import com.infina.cryptopricesimulator.engine.WorkerPool;
+import com.infina.cryptopricesimulator.metrics.InvariantChecker;
 import com.infina.cryptopricesimulator.model.Coin;
 import com.infina.cryptopricesimulator.model.Snapshot;
 import com.infina.cryptopricesimulator.queue.ExpectedCoinCalculatedResult;
@@ -76,7 +77,7 @@ public class SimulationService {
             long safeElapsedMs = runSingleSimulation(tasks, safeStates, safeCounter, workers);
 
             // Verify invariant: safe results must match expected
-            boolean invariantPassed = verifyInvariant(safeStates, expectedResults);
+            boolean invariantPassed = InvariantChecker.verifyPrices(safeStates, expectedResults);
 
             SimulationResultResponse response = new SimulationResultResponse(
                     seed, updates,
@@ -145,15 +146,7 @@ public class SimulationService {
 
         long startNanos = System.nanoTime();
 
-        try {
-            for (PriceUpdateTask task : tasks) {
-                queue.put(task);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("Interrupted while enqueueing tasks");
-        }
-
+        enqueueTasks(queue, tasks);
         pool.signalNoMoreTasks();
 
         try {
@@ -172,21 +165,6 @@ public class SimulationService {
                 elapsedMs, tasks.size(), workers);
 
         return elapsedMs;
-    }
-
-    private boolean verifyInvariant(Map<Coin, CoinState> safeStates,
-                                    Map<Coin, ExpectedCoinCalculatedResult> expected) {
-        for (Coin coin : Coin.values()) {
-            Snapshot snapshot = safeStates.get(coin).snapshot();
-            ExpectedCoinCalculatedResult exp = expected.get(coin);
-            if (snapshot.currentPrice() != exp.expectedPrice()) {
-                log.error("INVARIANT FAILED for {}: expected={}, actual={}",
-                        coin, exp.expectedPrice(), snapshot.currentPrice());
-                return false;
-            }
-        }
-        log.info("Invariant check PASSED: all safe prices match expected");
-        return true;
     }
 
     private List<CoinStatResponse> buildCoinStats(
@@ -216,8 +194,20 @@ public class SimulationService {
         return stats;
     }
 
+    private static void enqueueTasks(BlockingQueue<PriceUpdateTask> queue,
+                                      List<PriceUpdateTask> tasks) {
+        try {
+            for (PriceUpdateTask task : tasks) {
+                queue.put(task);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while enqueueing tasks");
+        }
+    }
+
     // Returns 0 when elapsedMs is 0 to avoid ArithmeticException (division by zero)
-    private long calculateThroughput(int updates, long elapsedMs) {
+    private static long calculateThroughput(int updates, long elapsedMs) {
         return elapsedMs > 0 ? (updates * MILLIS_PER_SECOND) / elapsedMs : 0;
     }
 }
