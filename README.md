@@ -305,7 +305,7 @@ Simülasyon çalışırken `jstack` ile alınan thread dump kesiti (workers=4, u
 - **Hangi state'teler?** `worker-2` RUNNABLE (aktif olarak konsola log yazıyor), diğer 3'ü WAITING — logback'in `ReentrantLock`'unda sıra bekliyorlar. Bu beklenen davranış: konsol çıktısı serialized olduğundan aynı anda sadece 1 thread yazabilir.
 - **Lock çekişmesi var mı?** Evet — logback appender'ındaki lock üzerinde contention görünüyor (3/4 worker beklemede). Bu iş mantığındaki lock değil, log yazma lock'u. Coin state lock'unda çekişme bu anlık kesitte görünmüyor.
 - **Deadlock var mı?** Hayır — `"Found one Java-level deadlock"` mesajı yok. Tüm beklemeler normal lock sıralaması.
-- **Producer (HTTP thread):** `http-nio-8080-exec-4` WAITING durumunda — `ArrayBlockingQueue.put()` üzerinde bloklanmış. Kuyruk dolu olduğu için backpressure çalışıyor: producer worker'ların kuyruğu boşaltmasını bekliyor.
+- **Producer (HTTP thread):** `http-nio-8080-exec-4` WAITING durumunda — `LinkedBlockingQueue.put()` üzerinde bloklanmış. Kuyruk dolu olduğu için backpressure çalışıyor: producer worker'ların kuyruğu boşaltmasını bekliyor.
 
 ## Merge Conflict Deneyimi
 ### Çakışmanın Yaşandığı Dallar (Branches):
