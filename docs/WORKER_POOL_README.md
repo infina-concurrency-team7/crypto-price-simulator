@@ -327,5 +327,3 @@ oluşturulmuştur.
 - **Conflict konusu:** Graceful shutdown timeout warning mesajı
 - **Çözüm yöntemi:** Manuel içerik karşılaştırması ve birleştirme
 - **Korunan mesaj:** `Workers did not finish within {}s; forcing shutdownNow()`
-- **Çözüm commit'i:** `<Commit linki>`
-- **Pull Request:** `<PR linki>`
