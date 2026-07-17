@@ -3,7 +3,7 @@
 ## 1. Proje Hakkında
 
 Bu proje, Java 17 ve Spring Boot kullanılarak geliştirilmiş eşzamanlı bir kripto fiyat simülasyon uygulamasıdır.  
-Sistem, üretilen fiyat güncelleme görevlerini bir `ArrayBlockingQueue` üzerinde toplar ve sabit sayıdaki worker thread tarafından işler.
+Sistem, üretilen fiyat güncelleme görevlerini bir `LinkedBlockingQueue` üzerinde toplar ve sabit sayıdaki worker thread tarafından işler.
 
 Uygulamanın amacı, çoklu thread ortamında oluşabilecek **race condition** problemlerini göstermek ve thread-safe veri yönetimi (Fine-Grained lock, Atomic yapıları) ile güvenli çözüm sağlamaktır.
 
@@ -23,7 +23,7 @@ SimulationService
 queue.TaskProducer ───────── engine.WorkerPool (CountDownLatch ile Bekler)
 │                             │
 ▼                             ▼
-ArrayBlockingQueue            engine.PriceWorker (Worker Threads)
+LinkedBlockingQueue            engine.PriceWorker (Worker Threads)
 │                             │
 ▼                             ▼
 Worker Threads (Tüketim)      state.CoinState & counter.Counter (Durum Güncellemeleri)
@@ -36,9 +36,9 @@ SimulationService (Sonuç Birleştirme & Doğrulama)
 
 1. Kullanıcı `/api/v1/simulate` endpoint'i üzerinden simülasyonu başlatır.
 2. `SimulationController`, isteği `SimulationService` katmanına iletir.
-3. `SimulationService` kuyruk (ArrayBlockingQueue) ve worker pool oluşturur, `ExpectedResultCalculator` ile beklenen matematiksel referans (golden source) sonuçları hesaplar.
+3. `SimulationService` kuyruk (LinkedBlockingQueue) ve worker pool oluşturur, `ExpectedResultCalculator` ile beklenen matematiksel referans (golden source) sonuçları hesaplar.
 4. `TaskProducer`, fiyat güncelleme görevlerini üretir.
-5. Üretilen görevler `ArrayBlockingQueue` içerisine eklenir.
+5. Üretilen görevler `LinkedBlockingQueue` içerisine eklenir.
 6. `PriceWorker` thread'leri kuyruktan görevleri alarak işler.
 7. Görevler hem güvenli (`SafeCoinState`) hem de güvensiz (`UnSafeCoinState`) statelere enjekte edilir. Aynı zamanda worker üzerinden update sayacının artması (SafeCounter/UnsafeCounter) tetiklenir.
 8. `SimulationService` simülasyonun bittiğini `CountDownLatch` ile bekler, süre hesaplamasını yapar ve veri tutarlılığını/kuralların bozulup bozulmadığını kontrol eder.
