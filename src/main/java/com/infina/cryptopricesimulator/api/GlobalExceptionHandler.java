@@ -1,15 +1,13 @@
 package com.infina.cryptopricesimulator.api;
 
-import com.infina.cryptopricesimulator.api.dto.ErrorResponse;
+import com.infina.cryptopricesimulator.dto.ErrorResponse;
 import com.infina.cryptopricesimulator.api.exception.SimulationAlreadyRunningException;
 
 import jakarta.validation.ConstraintViolationException;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.View;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;

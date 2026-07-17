@@ -172,7 +172,9 @@ public class SimulationService {
                     safeSnap.currentPrice(),
                     exp.expectedUpdateCount(),
                     unsafeSnap.updateCount(),
-                    safeSnap.updateCount()
+                    safeSnap.updateCount(),
+                    safeSnap.lastDelta(),       // Logdaki o gerçek son delta değerini veriyoruz
+                    safeSnap.lastUpdatedBy()    // Logda gördüğün o gerçek worker adını (örn: "worker-1") veriyoruz!
             ));
         }
         return stats;

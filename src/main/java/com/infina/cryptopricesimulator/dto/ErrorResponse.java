@@ -1,4 +1,4 @@
-package com.infina.cryptopricesimulator.api.dto;
+package com.infina.cryptopricesimulator.dto;
 
 import java.util.Map;
 
